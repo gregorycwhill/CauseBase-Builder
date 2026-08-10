@@ -1,0 +1,363 @@
+{
+  "entities": [
+    {
+      "causebase_id": "cb:demo:merri-creek-north",
+      "subject_type": "organisation",
+      "external_identifiers": [
+        {"scheme": "abn", "value": "11111111111", "source_evidence_id": "ev:merri:acnc"}
+      ],
+      "legal_name": "Friends of Merri Creek North Incorporated",
+      "display_name": "Friends of Merri Creek North",
+      "entity_status": "registered",
+      "enrichment_level": "enriched",
+      "coverage": {
+        "regulatory": true,
+        "financials": true,
+        "annual_report": true,
+        "website": true,
+        "current_activity": true,
+        "causebase_taxonomy": true,
+        "external_taxonomies": true,
+        "embedding": true,
+        "fundraising_estimate_method": "direct_extract"
+      },
+      "website": "https://example.org/merri",
+      "geography": [
+        "Merri Creek corridor north of Bell Street, Melbourne"
+      ],
+      "organisation_self_description": "Community-led care for nature and Country along the Merri Creek.",
+      "activities": [
+        "removes weeds and litter",
+        "revegetates creek banks",
+        "runs community water-quality monitoring"
+      ],
+      "beneficiaries": [
+        "local residents",
+        "urban waterways and habitat"
+      ],
+      "participation_modes": [
+        "working bees",
+        "membership",
+        "volunteering"
+      ],
+      "opportunities": [
+        {
+          "opportunity_id": "opp:merri:working-bee",
+          "type": "working_bee",
+          "title": "Monthly creek working bee",
+          "location": "Coburg, Victoria",
+          "source_url": "https://example.org/merri/volunteer",
+          "first_seen": "2026-08-01",
+          "last_seen": "2026-08-08",
+          "status": "current"
+        }
+      ],
+      "financials": {
+        "period": "2024-25",
+        "revenue": 180000,
+        "donations": 90000,
+        "government_grants": 30000,
+        "employee_costs": 20000,
+        "total_expenses": 165000,
+        "assets": 125000,
+        "liabilities": 15000
+      },
+      "fundraising": {
+        "direct": {
+          "value": 12000,
+          "evidence_ids": [
+            "ev:merri:annual:fundraising"
+          ]
+        }
+      },
+      "classifications": [
+        {
+          "taxonomy_id": "causebase",
+          "taxonomy_version": "0.1-demo",
+          "term_id": "cause.environment.waterways",
+          "term_label": "Waterways",
+          "assignment_method": "fixture",
+          "confidence": "high",
+          "evidence_ids": [
+            "ev:merri:website:activities"
+          ]
+        },
+        {
+          "taxonomy_id": "causebase",
+          "taxonomy_version": "0.1-demo",
+          "term_id": "activity.restoration",
+          "term_label": "Environmental restoration",
+          "assignment_method": "fixture",
+          "confidence": "high",
+          "evidence_ids": [
+            "ev:merri:website:activities"
+          ]
+        },
+        {
+          "taxonomy_id": "acnc",
+          "taxonomy_version": "demo",
+          "term_id": "advancing-natural-environment",
+          "term_label": "Advancing the natural environment",
+          "assignment_method": "source_native",
+          "confidence": "high",
+          "evidence_ids": [
+            "ev:merri:acnc"
+          ]
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev:merri:acnc",
+          "source_type": "regulatory",
+          "title": "ACNC fixture record",
+          "publisher": "Demo",
+          "observed_at": "2026-08-09"
+        },
+        {
+          "evidence_id": "ev:merri:website:activities",
+          "source_type": "organisation_self_report",
+          "title": "What we do",
+          "publisher": "Friends of Merri Creek North",
+          "url": "https://example.org/merri/what-we-do",
+          "observed_at": "2026-08-08"
+        },
+        {
+          "evidence_id": "ev:merri:annual:fundraising",
+          "source_type": "organisation_self_report",
+          "title": "2025 Annual Financial Report",
+          "publisher": "Friends of Merri Creek North",
+          "url": "https://example.org/merri/annual-report.pdf",
+          "observed_at": "2026-08-08",
+          "reporting_period": "2024-25",
+          "page": 21
+        }
+      ]
+    },
+    {
+      "causebase_id": "cb:demo:northern-youth-legal-centre",
+      "subject_type": "organisation",
+      "external_identifiers": [
+        {"scheme": "abn", "value": "22222222222", "source_evidence_id": "ev:youthlegal:website"}
+      ],
+      "legal_name": "Northern Youth Legal Centre Ltd",
+      "display_name": "Northern Youth Legal Centre",
+      "entity_status": "registered",
+      "enrichment_level": "rich",
+      "coverage": {
+        "regulatory": true,
+        "financials": true,
+        "annual_report": true,
+        "website": true,
+        "causebase_taxonomy": true,
+        "external_taxonomies": true,
+        "embedding": true,
+        "fundraising_estimate_method": "heuristic_estimate"
+      },
+      "website": "https://example.org/youthlegal",
+      "geography": [
+        "Northern suburbs of Melbourne"
+      ],
+      "organisation_self_description": "Standing with young people to build a fairer and more just future.",
+      "activities": [
+        "provides free legal advice",
+        "represents young people in selected legal matters",
+        "runs legal education sessions"
+      ],
+      "beneficiaries": [
+        "young people"
+      ],
+      "participation_modes": [
+        "volunteering",
+        "board service",
+        "donating"
+      ],
+      "financials": {
+        "period": "2024-25",
+        "revenue": 2400000,
+        "donations": 420000,
+        "government_grants": 1300000,
+        "employee_costs": 1450000,
+        "total_expenses": 2250000,
+        "assets": 1650000,
+        "liabilities": 480000
+      },
+      "fundraising": {
+        "expense_components": [
+          {
+            "label": "Marketing",
+            "value": 65000,
+            "evidence_ids": [
+              "ev:youthlegal:annual:expenses"
+            ]
+          },
+          {
+            "label": "Public relations",
+            "value": 22000,
+            "evidence_ids": [
+              "ev:youthlegal:annual:expenses"
+            ]
+          },
+          {
+            "label": "Legal publications",
+            "value": 40000,
+            "evidence_ids": [
+              "ev:youthlegal:annual:expenses"
+            ]
+          }
+        ]
+      },
+      "classifications": [
+        {
+          "taxonomy_id": "causebase",
+          "taxonomy_version": "0.1-demo",
+          "term_id": "cause.legal_access",
+          "term_label": "Access to legal services",
+          "assignment_method": "fixture",
+          "confidence": "high",
+          "evidence_ids": [
+            "ev:youthlegal:website"
+          ]
+        },
+        {
+          "taxonomy_id": "causebase",
+          "taxonomy_version": "0.1-demo",
+          "term_id": "activity.legal_advice",
+          "term_label": "Legal advice",
+          "assignment_method": "fixture",
+          "confidence": "high",
+          "evidence_ids": [
+            "ev:youthlegal:website"
+          ]
+        },
+        {
+          "taxonomy_id": "sdg",
+          "taxonomy_version": "2030-agenda",
+          "term_id": "sdg.16",
+          "term_label": "Peace, justice and strong institutions",
+          "assignment_method": "fixture",
+          "confidence": "medium",
+          "evidence_ids": [
+            "ev:youthlegal:website"
+          ]
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev:youthlegal:website",
+          "source_type": "organisation_self_report",
+          "title": "Services",
+          "publisher": "Northern Youth Legal Centre",
+          "url": "https://example.org/youthlegal/services",
+          "observed_at": "2026-08-08"
+        },
+        {
+          "evidence_id": "ev:youthlegal:annual:expenses",
+          "source_type": "organisation_self_report",
+          "title": "2025 Annual Financial Report",
+          "publisher": "Northern Youth Legal Centre",
+          "url": "https://example.org/youthlegal/report.pdf",
+          "observed_at": "2026-08-08",
+          "reporting_period": "2024-25",
+          "page": 34
+        }
+      ]
+    },
+    {
+      "causebase_id": "cb:demo:neighbourhood-food-shed",
+      "subject_type": "organisation",
+      "external_identifiers": [
+        {"scheme": "abn", "value": "33333333333", "source_evidence_id": "ev:foodshed:website"}
+      ],
+      "legal_name": "Neighbourhood Food Shed Association",
+      "display_name": "Neighbourhood Food Shed",
+      "entity_status": "registered",
+      "enrichment_level": "enriched",
+      "coverage": {
+        "regulatory": true,
+        "financials": true,
+        "annual_report": true,
+        "website": true,
+        "causebase_taxonomy": true,
+        "embedding": true,
+        "fundraising_estimate_method": "fallback_prior"
+      },
+      "website": "https://example.org/foodshed",
+      "geography": [
+        "Brunswick and Coburg, Melbourne"
+      ],
+      "organisation_self_description": "Building resilient communities through dignity, connection and food justice.",
+      "activities": [
+        "distributes groceries",
+        "operates a weekly community pantry",
+        "coordinates donated food from local businesses"
+      ],
+      "beneficiaries": [
+        "households experiencing food insecurity"
+      ],
+      "participation_modes": [
+        "volunteering",
+        "donating food",
+        "board service"
+      ],
+      "financials": {
+        "period": "2024-25",
+        "revenue": 310000,
+        "donations": 140000,
+        "government_grants": 50000,
+        "employee_costs": 85000,
+        "total_expenses": 290000,
+        "assets": 80000,
+        "liabilities": 12000
+      },
+      "fundraising": {
+        "fallback_prior_ratio": 0.15,
+        "fallback_evidence_ids": [
+          "ev:foodshed:annual"
+        ]
+      },
+      "classifications": [
+        {
+          "taxonomy_id": "causebase",
+          "taxonomy_version": "0.1-demo",
+          "term_id": "cause.food_security",
+          "term_label": "Food security",
+          "assignment_method": "fixture",
+          "confidence": "high",
+          "evidence_ids": [
+            "ev:foodshed:website"
+          ]
+        },
+        {
+          "taxonomy_id": "causebase",
+          "taxonomy_version": "0.1-demo",
+          "term_id": "activity.food_relief",
+          "term_label": "Food relief",
+          "assignment_method": "fixture",
+          "confidence": "high",
+          "evidence_ids": [
+            "ev:foodshed:website"
+          ]
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "ev:foodshed:website",
+          "source_type": "organisation_self_report",
+          "title": "Community pantry",
+          "publisher": "Neighbourhood Food Shed",
+          "url": "https://example.org/foodshed/pantry",
+          "observed_at": "2026-08-07"
+        },
+        {
+          "evidence_id": "ev:foodshed:annual",
+          "source_type": "organisation_self_report",
+          "title": "2025 Annual Report",
+          "publisher": "Neighbourhood Food Shed",
+          "url": "https://example.org/foodshed/annual-report.pdf",
+          "observed_at": "2026-08-07",
+          "reporting_period": "2024-25"
+        }
+      ]
+    }
+  ]
+}

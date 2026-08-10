@@ -1,0 +1,44 @@
+{
+  "taxonomy_id": "causebase",
+  "version": "0.1-demo",
+  "name": "CauseBase demo taxonomy",
+  "status": "experimental",
+  "terms": [
+    {
+      "term_id": "cause.environment.waterways",
+      "label": "Waterways"
+    },
+    {
+      "term_id": "cause.legal_access",
+      "label": "Access to legal services"
+    },
+    {
+      "term_id": "cause.food_security",
+      "label": "Food security"
+    },
+    {
+      "term_id": "activity.restoration",
+      "label": "Environmental restoration"
+    },
+    {
+      "term_id": "activity.legal_advice",
+      "label": "Legal advice"
+    },
+    {
+      "term_id": "activity.food_relief",
+      "label": "Food relief"
+    },
+    {
+      "term_id": "involvement.working_bee",
+      "label": "Working bee"
+    },
+    {
+      "term_id": "involvement.volunteer",
+      "label": "Volunteer"
+    },
+    {
+      "term_id": "involvement.board",
+      "label": "Board"
+    }
+  ]
+}
