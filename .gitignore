@@ -12,17 +12,17 @@ build/
 Thumbs.db
 
 # Builder working data belongs outside the repo.
-work/
-data/
-sources/
-processed/
-staging/
-runtime/
-cache/
-logs/
-tmp/
-temp/
-archive/
+/work/
+/data/
+/sources/
+/processed/
+/staging/
+/runtime/
+/cache/
+/logs/
+/tmp/
+/temp/
+/archive/
 
 # Never commit source-document archives.
 *.pdf
