@@ -25,10 +25,13 @@ def is_allowed_public_path(relative_path: str) -> bool:
         "similarities.parquet",
         "manifest.json",
         "schema/card.schema.json",
+        "taxonomy/causebase-v0.json",
+        "coverage.json",
+        "agent-guide.md",
     }:
         return True
     parts = relative_path.split("/")
-    return len(parts) == 3 and parts[0] == "cards" and parts[2].endswith(".md")
+    return len(parts) == 2 and parts[0] == "cards" and (parts[1].endswith(".md") or parts[1].endswith(".json"))
 
 
 def validate_card(card: CauseBaseCard) -> list[str]:
@@ -36,9 +39,9 @@ def validate_card(card: CauseBaseCard) -> list[str]:
     if not card.causebase_id.strip():
         errors.append("blank CauseBase subject ID")
     if card.enrichment_level in {"enriched", "rich"}:
-        if card.fundraising_expenditure.normalised_amount is None:
+        if card.fundraising_expenditure and card.fundraising_expenditure.normalised_amount is None:
             errors.append(f"{card.causebase_id}: blank fundraising expenditure")
-        if not card.fundraising_expenditure.method:
+        if card.fundraising_expenditure and not card.fundraising_expenditure.method:
             errors.append(f"{card.causebase_id}: fundraising method missing")
     for c in card.classifications:
         if not c.taxonomy_id or not c.taxonomy_version or not c.term_id:
@@ -133,8 +136,10 @@ def validate_publication(output_dir: Path) -> list[str]:
                 if not row:
                     errors.append(f"{card.causebase_id}: missing from CSV projection")
                     continue
-                if abs(float(row["fundraising_expenditure"]) - float(card.fundraising_expenditure.normalised_amount)) > 0.001:
+                if card.fundraising_expenditure and abs(float(row["fundraising_expenditure"]) - float(card.fundraising_expenditure.normalised_amount)) > 0.001:
                     errors.append(f"{card.causebase_id}: fundraising mismatch JSON vs CSV")
+                if card.fundraising_expenditure is None and row["fundraising_expenditure"]:
+                    errors.append(f"{card.causebase_id}: unexpected CSV fundraising value")
 
         for card in cards:
             from .render import card_locator
@@ -144,10 +149,13 @@ def validate_publication(output_dir: Path) -> list[str]:
                 errors.append(f"{card.causebase_id}: Markdown card missing")
             else:
                 md = md_path.read_text(encoding="utf-8")
-                if str(card.fundraising_expenditure.normalised_amount) not in md:
+                if card.fundraising_expenditure and str(card.fundraising_expenditure.normalised_amount) not in md:
                     errors.append(f"{card.causebase_id}: Markdown fundraising value mismatch")
                 if "[0." in md or "[-0." in md:
                     errors.append(f"{card.causebase_id}: raw embedding vector appears in Markdown")
+            from .render import card_json_locator
+            if not (output_dir / card_json_locator(card)).exists():
+                errors.append(f"{card.causebase_id}: JSON card missing")
 
     manifest_path = output_dir / "manifest.json"
     if manifest_path.exists():

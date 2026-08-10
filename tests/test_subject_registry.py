@@ -44,3 +44,24 @@ def test_card_binding_requires_current_registered_identity(tmp_path):
     assert registry.validate_card_bindings([Card()]) == []
     registry.get(subject["causebase_id"])["identity_lifecycle_status"] = "void"
     assert "cannot publish active card" in registry.validate_card_bindings([Card()])[0]
+
+
+def test_authoritative_acnc_promotion_mints_unknown_subject_and_never_duplicates_source(tmp_path):
+    registry = SubjectRegistry.load(tmp_path / "registry.json")
+    subject = registry.promote_authoritative_acnc(
+        source_record_id="src:acnc-register:example", abn="51 214 424 410",
+        legal_name="Example Federated Branch Incorporated",
+        source_id="acnc-registered-charities-2026-08-10", source_version="2026-08-10",
+        evidence_ids=["ev:acnc:example"],
+    )
+    assert subject["subject_kind"] == "unknown"
+    assert subject["promotion"]["promotion_method"] == "automated_authoritative_source"
+    assert subject["promotion"]["promotion_policy"] == "acnc-authoritative-v1"
+    assert subject["promotion"]["external_identifiers"]["abn"] == ["51214424410"]
+    with pytest.raises(ValueError, match="already governedly bound"):
+        registry.promote_authoritative_acnc(
+            source_record_id="src:acnc-register:example", abn="51214424410",
+            legal_name="Example Federated Branch Incorporated",
+            source_id="acnc-registered-charities-2026-08-10", source_version="2026-08-10",
+            evidence_ids=["ev:acnc:example"],
+        )

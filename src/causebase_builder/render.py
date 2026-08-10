@@ -3,8 +3,10 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import quote
 
 import pandas as pd
 
@@ -16,9 +18,12 @@ def _jsonable(card: CauseBaseCard) -> dict:
 
 
 def card_locator(card: CauseBaseCard) -> str:
-    """Stable filesystem-safe locator derived from, but not substituting for, identity."""
-    digest = hashlib.sha256(card.causebase_id.encode("utf-8")).hexdigest()
-    return f"cards/{digest[:2]}/{digest}.md"
+    """Stable public URL based directly on the opaque CauseBase identity."""
+    return f"cards/{quote(card.causebase_id, safe='')}.md"
+
+
+def card_json_locator(card: CauseBaseCard) -> str:
+    return f"cards/{quote(card.causebase_id, safe='')}.json"
 
 
 def render_markdown(card: CauseBaseCard) -> str:
@@ -79,13 +84,13 @@ def render_markdown(card: CauseBaseCard) -> str:
         "",
         f"- Revenue: {display_metric('revenue')}",
         f"- Total expenses: {display_metric('total_expenses')}",
-        f"- Estimated fundraising expenditure: {fr.normalised_amount} {fr.normalised_currency}",
-        f"- Fundraising estimate method: `{fr.method}`",
-        f"- Fundraising confidence: {fr.confidence}",
+        f"- Estimated fundraising expenditure: {fr.normalised_amount} {fr.normalised_currency}" if fr else "- Estimated fundraising expenditure: Not available from selected evidence",
+        f"- Fundraising estimate method: `{fr.method}`" if fr else "- Fundraising estimate method: Not applicable",
+        f"- Fundraising confidence: {fr.confidence}" if fr else "- Fundraising confidence: Not available",
     ]
-    if fr.rule_id:
+    if fr and fr.rule_id:
         lines.append(f"- Rule: `{fr.rule_id}`")
-    if fr.note:
+    if fr and fr.note:
         lines.append(f"- Note: {fr.note}")
 
     lines += ["", "## Classifications", ""]
@@ -110,6 +115,8 @@ def render_markdown(card: CauseBaseCard) -> str:
         "",
         f"- Embedding: `{card.embedding.embedding_id if card.embedding else 'none'}`",
         f"- Embedding model: `{card.embedding.model_id if card.embedding else 'none'}`",
+        f"- Synthesis model: `{card.synthesis.model_id if card.synthesis else 'none'}`",
+        f"- Synthesis evidence hash: `{card.synthesis.evidence_input_hash if card.synthesis else 'none'}`",
         "",
         "## Build",
         "",
@@ -127,7 +134,7 @@ def flatten_card(card: CauseBaseCard) -> dict:
     def flat_metric(metric: str):
         metric_set = metric_sets.get(metric)
         if not metric_set or metric_set.reconciliation_status != "single_observation":
-            return ""
+            return None
         return metric_set.observations[0].amount.normalised_amount
     return {
         "causebase_id": card.causebase_id,
@@ -149,9 +156,9 @@ def flatten_card(card: CauseBaseCard) -> dict:
         "participation_modes": " | ".join(card.participation_modes),
         "revenue": flat_metric("revenue"),
         "total_expenses": flat_metric("total_expenses"),
-        "fundraising_expenditure": card.fundraising_expenditure.normalised_amount,
-        "fundraising_method": card.fundraising_expenditure.method,
-        "fundraising_confidence": card.fundraising_expenditure.confidence,
+        "fundraising_expenditure": card.fundraising_expenditure.normalised_amount if card.fundraising_expenditure else None,
+        "fundraising_method": card.fundraising_expenditure.method if card.fundraising_expenditure else None,
+        "fundraising_confidence": card.fundraising_expenditure.confidence if card.fundraising_expenditure else None,
         "classification_terms": " | ".join(
             f"{c.taxonomy_id}:{c.term_id}" for c in card.classifications
         ),
@@ -173,6 +180,8 @@ def render_publication(
     similarities: list[dict],
     output_dir: Path,
     require_parquet: bool = True,
+    taxonomy: dict | None = None,
+    agent_guide: str | None = None,
 ) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     cards_dir = output_dir / "cards"
@@ -208,7 +217,7 @@ def render_publication(
             "source_text_hash": c.embedding.source_text_hash,
             "vector": vectors[c.causebase_id],
         }
-        for c in cards
+        for c in cards if c.embedding is not None
     ]
     (output_dir / "embeddings.json").write_text(
         json.dumps(embedding_rows, indent=2),
@@ -226,11 +235,36 @@ def render_publication(
         (output_dir / relative_locator).write_text(
             render_markdown(card), encoding="utf-8"
         )
+        (output_dir / card_json_locator(card)).write_text(
+            json.dumps(_jsonable(card), indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     (schema_dir / "card.schema.json").write_text(
         json.dumps(CauseBaseCard.model_json_schema(), indent=2),
         encoding="utf-8",
     )
+    if taxonomy is not None:
+        taxonomy_dir = output_dir / "taxonomy"
+        taxonomy_dir.mkdir(exist_ok=True)
+        (taxonomy_dir / "causebase-v0.json").write_text(
+            json.dumps(taxonomy, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+    coverage = {
+        "entity_count": len(cards),
+        "capability_status_counts": dict(sorted(Counter(
+            f"{observation.capability}:{observation.status}"
+            for card in cards for observation in card.coverage
+        ).items())),
+        "classification_counts": dict(sorted(Counter(
+            f"{classification.taxonomy_id}:{classification.term_id}"
+            for card in cards for classification in card.classifications
+        ).items())),
+    }
+    (output_dir / "coverage.json").write_text(
+        json.dumps(coverage, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    if agent_guide is not None:
+        (output_dir / "agent-guide.md").write_text(agent_guide, encoding="utf-8")
 
     parquet_status = "written"
     try:
@@ -242,9 +276,10 @@ def render_publication(
                     "vector": row["vector"],
                 }
                 for row in embedding_rows
-            ]
+            ],
+            columns=["causebase_id", "embedding_id", "embedding_type", "model_id", "model_version", "dimensions", "source_text_hash", "vector"],
         ).to_parquet(output_dir / "embeddings.parquet", index=False)
-        pd.DataFrame(similarities).to_parquet(
+        pd.DataFrame(similarities, columns=["causebase_id", "similar_causebase_id", "similarity_type", "score", "rank", "method", "method_version", "dataset_version"]).to_parquet(
             output_dir / "similarities.parquet", index=False
         )
     except (ImportError, ModuleNotFoundError) as exc:
@@ -275,12 +310,13 @@ def render_publication(
         ),
         "fundraising_method_counts": {
             method: sum(c.fundraising_expenditure.method == method for c in cards)
-            for method in sorted({c.fundraising_expenditure.method for c in cards})
+            for method in sorted({c.fundraising_expenditure.method for c in cards if c.fundraising_expenditure})
         },
+        "fundraising_unresolved_count": sum(c.fundraising_expenditure is None for c in cards),
         "embedding": {
             "model_id": cards[0].embedding.model_id if cards and cards[0].embedding else None,
             "model_version": cards[0].embedding.model_version if cards and cards[0].embedding else None,
-            "note": "Demo deterministic embedding only; not semantically meaningful.",
+            "note": "Demo deterministic embedding only; not semantically meaningful." if cards and cards[0].embedding and cards[0].embedding.model_id.startswith("causebase-demo") else "Production embedding metadata; inspect model/version.",
         },
         "parquet_status": parquet_status,
         "validation": {"status": "pending"},

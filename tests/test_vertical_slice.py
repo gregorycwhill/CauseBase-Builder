@@ -43,6 +43,22 @@ def test_fixture_build_round_trip(tmp_path: Path):
     assert "[-0." not in md
 
 
+def test_publication_can_include_taxonomy_coverage_and_agent_guide(tmp_path: Path):
+    cards, vectors, similarities = build_fixture_corpus(
+        Path("tests/fixtures/source/entities.json"), dataset_version="test-0.1"
+    )
+    render_publication(
+        cards, vectors, similarities, tmp_path, require_parquet=False,
+        taxonomy={"taxonomy_id": "causebase", "version": "test", "terms": []},
+        agent_guide="# Retrieval\nUse `causebase.json` to locate a stable card.",
+    )
+
+    assert json.loads((tmp_path / "coverage.json").read_text(encoding="utf-8"))["entity_count"] == 3
+    assert (tmp_path / "taxonomy" / "causebase-v0.json").exists()
+    assert (tmp_path / "agent-guide.md").exists()
+    assert validate_publication(tmp_path) == []
+
+
 def test_similarity_is_descriptive_not_recommendation():
     cards, vectors, similarities = build_fixture_corpus(
         Path("tests/fixtures/source/entities.json"),
@@ -89,7 +105,7 @@ def test_divergent_metric_never_silently_flattens_to_one_value():
         )
     )
     revenue.reconciliation_status = "divergent"
-    assert flatten_card(cards[0])["revenue"] == ""
+    assert flatten_card(cards[0])["revenue"] is None
     assert "Multiple reported values [divergent]" in render_markdown(cards[0])
 
 
@@ -105,7 +121,7 @@ def test_real_red_cross_conflicting_revenue_is_retained_and_not_flattened():
 
     assert revenue.reconciliation_status == "non_comparable"
     assert len(revenue.observations) == 2
-    assert flatten_card(card)["revenue"] == ""
+    assert flatten_card(card)["revenue"] is None
     assert expenses.reconciliation_status == "agreeing"
     assert len(card.financial_records) == 2
 

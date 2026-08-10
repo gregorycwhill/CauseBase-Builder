@@ -1,0 +1,32 @@
+{
+  "taxonomy_id": "causebase",
+  "version": "0.1-phase2a",
+  "name": "CauseBase taxonomy v0",
+  "status": "provisional, evidence-tested in Phase 2A",
+  "dimensions": ["cause_problem", "beneficiary", "activity", "approach", "participation", "geography", "organisational_character"],
+  "terms": [
+    {"term_id": "cause.humanitarian_assistance", "label": "Humanitarian assistance"},
+    {"term_id": "cause.environment", "label": "Environmental protection"},
+    {"term_id": "cause.animal_welfare", "label": "Animal welfare"},
+    {"term_id": "cause.employment_inclusion", "label": "Employment inclusion"},
+    {"term_id": "cause.culture_and_heritage", "label": "Culture and heritage"},
+    {"term_id": "cause.community_wellbeing", "label": "Community wellbeing"},
+    {"term_id": "beneficiary.general_community", "label": "General community"},
+    {"term_id": "beneficiary.people_experiencing_disadvantage", "label": "People experiencing disadvantage"},
+    {"term_id": "beneficiary.wildlife", "label": "Wildlife"},
+    {"term_id": "activity.direct_service", "label": "Direct service delivery"},
+    {"term_id": "activity.environmental_restoration", "label": "Environmental restoration"},
+    {"term_id": "activity.advocacy", "label": "Advocacy"},
+    {"term_id": "activity.events_and_public_programming", "label": "Events and public programming"},
+    {"term_id": "activity.employment_support", "label": "Employment support"},
+    {"term_id": "approach.community_partnership", "label": "Community partnership"},
+    {"term_id": "approach.volunteer_enabled", "label": "Volunteer-enabled delivery"},
+    {"term_id": "participation.volunteering", "label": "Volunteering"},
+    {"term_id": "participation.working_bees", "label": "Working bees"},
+    {"term_id": "participation.public_events", "label": "Public events"},
+    {"term_id": "geography.australia", "label": "Australia"},
+    {"term_id": "geography.local_or_regional", "label": "Local or regional Australia"},
+    {"term_id": "organisation.national", "label": "National organisation"},
+    {"term_id": "organisation.local", "label": "Local organisation"}
+  ]
+}

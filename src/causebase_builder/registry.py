@@ -16,6 +16,16 @@ def _event(event_type: str, **details: object) -> dict:
     return {"event_type": event_type, "at": _now(), **details}
 
 
+def _valid_abn(value: str) -> str | None:
+    digits = "".join(character for character in value if character.isdigit())
+    if len(digits) != 11:
+        return None
+    weighted = (int(digits[0]) - 1) * 10 + sum(
+        int(digit) * weight for digit, weight in zip(digits[1:], (1, 3, 5, 7, 9, 11, 13, 15, 17, 19), strict=True)
+    )
+    return digits if weighted % 89 == 0 else None
+
+
 class SubjectRegistry:
     def __init__(self, path: Path, payload: dict | None = None):
         self.path = path
@@ -63,6 +73,55 @@ class SubjectRegistry:
             "lifecycle_events": [_event("SUBJECT_CREATED", promotion_method=promotion_method)],
         }
         self.subjects.append(subject)
+        return subject
+
+    def promote_authoritative_acnc(
+        self, *, source_record_id: str, abn: str, legal_name: str, source_id: str,
+        source_version: str, evidence_ids: list[str], display_name: str | None = None,
+        policy_version: str = "acnc-authoritative-v1",
+    ) -> dict:
+        """Mint a Phase 2A subject without resolving its ontology.
+
+        An ACNC record establishes an independently addressable registered
+        subject, not a canonical public organisation, brand, group, or legal
+        person. Federation is therefore not an automatic exclusion.
+        """
+        digits = _valid_abn(abn)
+        if digits is None:
+            raise ValueError("ACNC automated promotion requires a valid ABN")
+        if not source_record_id or not legal_name.strip() or not source_id or not source_version:
+            raise ValueError("ACNC automated promotion requires source record, source/version and legal name")
+        for subject in self.subjects:
+            promotion = subject.get("promotion", {})
+            if source_record_id in promotion.get("source_record_ids", []):
+                raise ValueError(f"source record already governedly bound: {source_record_id}")
+            if digits in promotion.get("external_identifiers", {}).get("abn", []):
+                raise ValueError(f"ABN already governedly bound: {digits}")
+        subject = self.mint(
+            display_name=display_name or legal_name,
+            subject_kind="unknown",
+            resolution_status="resolved",
+            resolution_basis="authoritative current ACNC Register record with valid ABN under constrained promotion policy",
+            source_record_ids=[source_record_id],
+            promotion_method="automated_authoritative_source",
+        )
+        subject["promotion"].update({
+            "promotion_method": "automated_authoritative_source",
+            "promotion_policy": policy_version,
+            "source_record_ids": [source_record_id],
+            "external_identifiers": {"abn": [digits]},
+            "source_id": source_id,
+            "source_version": source_version,
+            "registered_legal_name_at_promotion": legal_name,
+            "evidence_ids": list(evidence_ids),
+            "initial_subject_kind": "unknown",
+        })
+        subject["lifecycle_events"].append(_event(
+            "SUBJECT_PROMOTED_AUTOMATICALLY",
+            promotion_policy=policy_version,
+            source_record_id=source_record_id,
+            abn=digits,
+        ))
         return subject
 
     def merge(self, *, survivor_id: str, loser_id: str, effective_release: str | None = None) -> None:

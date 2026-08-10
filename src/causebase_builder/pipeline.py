@@ -58,17 +58,18 @@ def build_card(source: dict, dataset_version: str) -> CauseBaseCard:
             for capability, value in coverage_source.items()
             if isinstance(value, bool)
         ]
-    financials_source = dict(source["financials"])
-    if isinstance(financials_source.get("period"), str):
+    financials_source = dict(source.get("financials", {}))
+    if financials_source and isinstance(financials_source.get("period"), str):
         financials_source["period"] = {"label": financials_source["period"]}
-    financials_source.setdefault(
+    if financials_source:
+        financials_source.setdefault(
         "financial_record_id", f"fr:{source['causebase_id']}:fixture"
-    )
-    financials_source.setdefault("reporting_scope", "subject")
-    financials_source.setdefault("reporting_subject_causebase_id", source["causebase_id"])
-    financials_source.setdefault("covered_subjects", [source["causebase_id"]])
-    financials_source.setdefault("consolidated", "false")
-    financials_source.setdefault("attribution_method", "direct_subject_report")
+        )
+        financials_source.setdefault("reporting_scope", "subject")
+        financials_source.setdefault("reporting_subject_causebase_id", source["causebase_id"])
+        financials_source.setdefault("covered_subjects", [source["causebase_id"]])
+        financials_source.setdefault("consolidated", "false")
+        financials_source.setdefault("attribution_method", "direct_subject_report")
     for field in (
         "revenue", "donations", "government_grants", "employee_costs",
         "total_expenses", "assets", "liabilities",
@@ -85,7 +86,7 @@ def build_card(source: dict, dataset_version: str) -> CauseBaseCard:
                 "source_raw_value": str(value),
             }
 
-    financial_record = Financials.model_validate(financials_source)
+    financial_record = Financials.model_validate(financials_source) if financials_source else None
     metric_names = (
         "revenue", "donations", "government_grants", "employee_costs",
         "total_expenses", "assets", "liabilities",
@@ -103,15 +104,16 @@ def build_card(source: dict, dataset_version: str) -> CauseBaseCard:
             reconciliation_status="single_observation",
         )
         for metric in metric_names
-        if getattr(financial_record, metric) is not None
+        if financial_record is not None and getattr(financial_record, metric) is not None
     ]
-    financial_records = [financial_record]
+    financial_records = [financial_record] if financial_record is not None else []
     if source.get("financial_records"):
         financial_records = [Financials.model_validate(item) for item in source["financial_records"]]
         financial_metrics = [
             FinancialMetricSet.model_validate(item)
             for item in source.get("financial_metrics", [])
         ]
+    fundraising_source = (source.get("financial_records") or [financials_source])[0] if financial_records else {}
 
     return CauseBaseCard(
         causebase_id=source["causebase_id"],
@@ -136,8 +138,10 @@ def build_card(source: dict, dataset_version: str) -> CauseBaseCard:
         opportunities=opportunities,
         financial_records=financial_records,
         financial_metrics=financial_metrics,
-        fundraising_expenditure=estimate_fundraising(
-            {**source, "financials": (source.get("financial_records") or [financials_source])[0]}
+        fundraising_expenditure=(
+            estimate_fundraising({**source, "financials": fundraising_source})
+            if financial_records and fundraising_source.get("total_expenses") is not None
+            else None
         ),
         classifications=classifications,
         evidence=evidence,

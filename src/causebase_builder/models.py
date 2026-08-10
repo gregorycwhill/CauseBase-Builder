@@ -15,6 +15,7 @@ SourceType = Literal[
 ]
 
 SubjectKind = Literal[
+    "unknown",
     "organisation",
     "organisation_group",
     "legal_entity",
@@ -52,6 +53,8 @@ DerivationMethod = Literal[
     "heuristic_estimate",
     "llm_interpretation",
     "peer_imputation",
+    # Retained only so historical fixture data can still be parsed. It is not a
+    # permitted Phase 2A publication method.
     "fallback_prior",
 ]
 
@@ -264,6 +267,26 @@ class EmbeddingMetadata(BaseModel):
     vector_ref: str
 
 
+class SynthesisMetadata(BaseModel):
+    """Reproducibility metadata for an evidence-grounded LLM artefact.
+
+    Prompts and raw source excerpts are deliberately excluded from the public
+    card: they are private working material. The stable identifiers and hashes
+    make an artefact auditable without publishing copied third-party text.
+    """
+
+    model_id: str
+    prompt_version: str
+    parameters: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+    evidence_input_hash: str
+    generated_at: datetime
+    editorial_policy_version: str
+    request_id: str | None = None
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    estimated_cost_usd: Decimal | None = Field(default=None, ge=0)
+
+
 class Opportunity(BaseModel):
     opportunity_id: str
     type: Literal[
@@ -309,14 +332,18 @@ class CauseBaseCard(BaseModel):
     participation_modes: list[str] = Field(default_factory=list)
     opportunities: list[Opportunity] = Field(default_factory=list)
 
-    financial_records: list[Financials] = Field(min_length=1)
+    financial_records: list[Financials] = Field(default_factory=list)
     financial_metrics: list[FinancialMetricSet] = Field(default_factory=list)
-    fundraising_expenditure: FundraisingEstimate
+    # Some genuine charities do not disclose a defensible fundraising figure.
+    # A null is an honest publication state, not permission to use a universal
+    # synthetic percentage.
+    fundraising_expenditure: FundraisingEstimate | None = None
 
     classifications: list[Classification] = Field(default_factory=list)
     evidence: list[EvidenceRef] = Field(default_factory=list)
 
     embedding: EmbeddingMetadata | None = None
+    synthesis: SynthesisMetadata | None = None
 
     dataset_version: str
     card_schema_version: str = "0.1"
@@ -329,12 +356,20 @@ class CauseBaseCard(BaseModel):
         if self.enrichment_level in {"enriched", "rich"}:
             if not self.causebase_summary.strip():
                 raise ValueError("enriched card requires a CauseBase summary")
-            if self.fundraising_expenditure is None:
-                raise ValueError("enriched card requires fundraising estimate")
+            # A missing estimate must be accompanied by an explicit coverage
+            # observation so downstream users can distinguish it from an
+            # accidental omission.
+            if self.fundraising_expenditure is None and not any(
+                item.capability == "fundraising_expenditure"
+                and item.status in {"not_available_from_source", "not_yet_processed", "retrieval_failed", "unknown"}
+                for item in self.coverage
+            ):
+                raise ValueError("enriched card without fundraising estimate requires coverage state")
         evidence_ids = {e.evidence_id for e in self.evidence}
-        missing = set(self.fundraising_expenditure.evidence_ids) - evidence_ids
-        if missing:
-            raise ValueError(f"fundraising evidence IDs missing from card: {sorted(missing)}")
+        if self.fundraising_expenditure is not None:
+            missing = set(self.fundraising_expenditure.evidence_ids) - evidence_ids
+            if missing:
+                raise ValueError(f"fundraising evidence IDs missing from card: {sorted(missing)}")
         relationship_missing = {
             evidence_id
             for relationship in self.relationships
@@ -350,7 +385,8 @@ class CauseBaseCard(BaseModel):
             for financial_record in self.financial_records
         }
         if (
-            self.fundraising_expenditure.financial_record_id is not None
+            self.fundraising_expenditure is not None
+            and self.fundraising_expenditure.financial_record_id is not None
             and self.fundraising_expenditure.financial_record_id not in financial_record_ids
         ):
             raise ValueError("fundraising estimate references an unknown financial record")
