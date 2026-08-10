@@ -11,6 +11,7 @@ from .sources.documents import extract_pdf_evidence
 from .sources.reality_spike import map_ais_coverage, resolve_cohort, resolve_report_abns
 from .sources.web import extract_web_snapshot
 from .registry import SubjectRegistry
+from .national import build_national_backbone, validate_structured_backbone
 from .validate import mark_manifest_validated, validate_publication
 
 
@@ -165,6 +166,29 @@ def promote_subject(args: argparse.Namespace) -> int:
     return 0
 
 
+def build_national(args: argparse.Namespace) -> int:
+    diagnostics = build_national_backbone(
+        acnc_csv=Path(args.acnc_csv), acnc_metadata=Path(args.acnc_metadata),
+        ais_csv=Path(args.ais_csv), ais_metadata=Path(args.ais_metadata),
+        dgr_observations=Path(args.dgr_observations) if args.dgr_observations else None,
+        dgr_bulk_zips=[Path(path) for path in args.dgr_bulk_zip] if args.dgr_bulk_zip else None,
+        dgr_metadata=Path(args.dgr_metadata) if args.dgr_metadata else None,
+        registry_path=Path(args.registry), private_output=Path(args.private_output),
+        public_output=Path(args.public_output),
+    )
+    errors = validate_structured_backbone(Path(args.public_output))
+    manifest_path = Path(args.public_output) / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["validation"] = {"status": "passed" if not errors else "failed", "errors": errors}
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    if errors:
+        print("BUILD FAILED VALIDATION")
+        for error in errors: print(f"- {error}")
+        return 2
+    print(f"Built national backbone: {diagnostics['source_row_counts']}")
+    return 0
+
+
 def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="causebase")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -233,6 +257,19 @@ def make_parser() -> argparse.ArgumentParser:
     promote.add_argument("--subject-kind", default="organisation")
     promote.add_argument("--display-name")
     promote.set_defaults(func=promote_subject)
+
+    national = sub.add_parser("build-national-backbone", help="Normalise national sources privately and render a safe backbone")
+    national.add_argument("--acnc-csv", required=True)
+    national.add_argument("--acnc-metadata", required=True)
+    national.add_argument("--ais-csv", required=True)
+    national.add_argument("--ais-metadata", required=True)
+    national.add_argument("--dgr-observations")
+    national.add_argument("--dgr-bulk-zip", action="append")
+    national.add_argument("--dgr-metadata")
+    national.add_argument("--registry", required=True)
+    national.add_argument("--private-output", required=True)
+    national.add_argument("--public-output", required=True)
+    national.set_defaults(func=build_national)
     return parser
 
 
