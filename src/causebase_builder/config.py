@@ -47,6 +47,6 @@ def load_paths(workspace_root: Path | None = None) -> CauseBasePaths:
         archive_root=Path(os.environ.get("CAUSEBASE_ARCHIVE_ROOT", default_workspace / "archive")),
         runtime_root=Path(os.environ.get("CAUSEBASE_RUNTIME_ROOT", r"C:\CauseBase-runtime")),
         data_repository_root=Path(
-            os.environ.get("CAUSEBASE_DATA_REPOSITORY", default_workspace / "causebase-data")
+            os.environ.get("CAUSEBASE_DATA_REPOSITORY", default_workspace / "CauseBase-Data")
         ),
     )

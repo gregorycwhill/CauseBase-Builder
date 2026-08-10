@@ -95,7 +95,7 @@ def test_divergent_metric_never_silently_flattens_to_one_value():
 
 def test_real_red_cross_conflicting_revenue_is_retained_and_not_flattened():
     cards, _, _ = build_fixture_corpus(
-        Path("../causebase-data/governed-inputs/reality-spike/australian-red-cross.json"),
+        Path("../CauseBase-Data/governed-inputs/reality-spike/australian-red-cross.json"),
         dataset_version="reality-spike-test",
     )
 
@@ -112,11 +112,11 @@ def test_real_red_cross_conflicting_revenue_is_retained_and_not_flattened():
 
 def test_real_merri_transition_and_fitted_identity_evidence_are_retained():
     merri_cards, _, _ = build_fixture_corpus(
-        Path("../causebase-data/governed-inputs/reality-spike/merri-creek-management-committee.json"),
+        Path("../CauseBase-Data/governed-inputs/reality-spike/merri-creek-management-committee.json"),
         dataset_version="reality-spike-test",
     )
     fitted_cards, _, _ = build_fixture_corpus(
-        Path("../causebase-data/governed-inputs/reality-spike/fitted-for-work.json"),
+        Path("../CauseBase-Data/governed-inputs/reality-spike/fitted-for-work.json"),
         dataset_version="reality-spike-test",
     )
 

@@ -66,7 +66,7 @@ Local mutable runtime\
     state\ temp\ cache\ logs\ staging\
 OneDrive repositories\
   CauseBase\
-    causebase-builder\ causebase-data\ causebase-viewer\
+    CauseBase-Builder\ CauseBase-Data\ CauseBase-Viewer\
 ```
 
 Archive, runtime and publication paths are configurable. Raw source material never becomes Git content merely because storage is OneDrive-backed.
@@ -83,3 +83,4 @@ Archive, runtime and publication paths are configurable. Raw source material nev
 - `AGENTS.md` — instructions for coding agents working in this repository
 
 High-level CauseBase product documents remain authoritative where these implementation documents conflict with them.
+Their canonical GitHub-visible copies are in [CauseBase-Data](https://github.com/gregorycwhill/CauseBase-Data): `CURRENT_STATE.md`, `ROADMAP.md`, `IMPLEMENTATION_PLAN.md`, `TEST_PLAN.md` and `CODEX_TO_CHATGPT_HANDOFF.md`.
