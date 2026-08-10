@@ -119,7 +119,7 @@ def build_national_backbone(
         "sources": [acnc_meta, ais_meta, dgr_meta],
         "source_row_counts": {"acnc_register": len(acnc), "ais": len(ais), "dgr_subject_specific": len(dgr.get("observations", [])), "dgr_bulk_observations": len(bulk_dgr)},
         "unique_abns": {"acnc_register": len(acnc_by_abn), "ais": len(ais_by_abn), "dgr_subject_specific": len({i["abn"] for i in dgr.get("observations", [])}), "dgr_bulk": len({i.abn for i in bulk_dgr})},
-        "subjects_promoted": len(registry.subjects), "resolution_counts": dict(resolution_counts),
+        "subjects_promoted": len(registry.subjects), "resolution_counts": {status: resolution_counts[status] for status in ("resolved", "candidate", "ambiguous", "unresolved")},
         "ais_coverage": {"with_register_abn": sum(record.abn in acnc_by_abn for record in ais), "without_register_abn": sum(record.abn not in acnc_by_abn for record in ais)},
         "dgr_coverage": {"scope": "national ABR Bulk Extract; absence is only meaningful within this dated extract", "status_counts": {**dict(dgr_counts), "endorsed_bulk": len(bulk_dgr)}},
         "reporting_period_distribution": dict(period_distribution), "consolidated_report_frequency": dict(consolidated),
