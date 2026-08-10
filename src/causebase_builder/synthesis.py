@@ -8,7 +8,7 @@ from typing import Any
 from .openai_client import ApiResult, estimate_synthesis_cost, responses_create
 
 
-SYNTHESIS_PROMPT_VERSION = "phase2a-0.4"
+SYNTHESIS_PROMPT_VERSION = "phase2a-0.5"
 SYNTHESIS_SCHEMA: dict[str, Any] = {
     "type": "json_schema",
     "name": "causebase_phase2a_synthesis",
@@ -43,6 +43,8 @@ def synthesis_prompt(*, evidence_pack: dict[str, Any], taxonomy_terms: list[dict
     return """You write a CauseBase Card from the supplied evidence only. Use plain Australian English.
 
 CauseBase is neutral and descriptive: no recommendations, donation encouragement, claims of effectiveness, value judgements, promotional adjectives, or invented detail. Describe concrete activity, beneficiaries, geography and participation where the evidence supports them. Treat organisation-authored claims as claims rather than independent fact. Preserve disagreements and gaps. Do not turn a mission statement into CauseBase voice. Where selected website or report excerpts contain enough concrete information, write a dense 150–220 word summary with multiple grounded details; do not merely compress the evidence into a short abstract. A summary may be shorter only where the selected evidence is genuinely sparse. Never pad a summary with generalities or unsupported detail.
+
+When descriptive evidence is sparse, state the positive epistemic limitation in CauseBase terms: CauseBase does not have sufficient descriptive evidence in this release to independently identify specific activities or beneficiaries. Do not say that ACNC does not list purposes, beneficiaries, categories or tags: those external classifications may exist but are deliberately displayed separately and are not native CauseBase inference inputs. Do not infer activities from a name.
 
 Return the required JSON. Field values must be plain evidence-grounded phrases, not taxonomy labels, evaluative language or inferred outcomes. `taxonomy_term_ids` may contain only supplied IDs and must be a small set (normally no more than eight) of terms directly supported by selected evidence. Do not assign broad terms merely because they might be compatible with an organisation; use an empty list when none is warranted. In particular, regulatory labels such as social welfare, religion, regional/remote, or general charitable purpose do not by themselves establish direct service delivery, general-community beneficiaries, a CauseBase cause term, national reach, or a local operating model. `uncertainty_note` must be empty when there is no material limitation to communicate.
 

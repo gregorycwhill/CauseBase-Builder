@@ -56,6 +56,8 @@ def test_cached_phase2a_synthesis_preserves_provenance_and_never_uses_fixture_pr
 
     assert telemetry["cache_hit"] is True
     assert card.synthesis.model_id == "gpt-5-mini-2025-08-07"
+    assert "request_id" not in card.synthesis.model_dump()
+    assert "input_tokens" not in card.synthesis.model_dump()
     assert card.fundraising_expenditure is None
     assert any(
         observation.capability == "fundraising_expenditure"
@@ -65,6 +67,10 @@ def test_cached_phase2a_synthesis_preserves_provenance_and_never_uses_fixture_pr
     assert {item.term_id for item in card.classifications} == {
         "cause.environment", "activity.environmental_restoration", "participation.working_bees"
     }
+    assert all(
+        not item.evidence_ids for item in card.classifications if item.taxonomy_id == "causebase"
+    )
+    assert len([item for item in card.coverage if item.capability == "fundraising_expenditure"]) == 1
 
 
 def test_external_acnc_classifications_are_not_native_inference_or_semantic_input(tmp_path: Path):
@@ -85,6 +91,7 @@ def test_external_acnc_classifications_are_not_native_inference_or_semantic_inpu
 def test_current_synthesis_prompt_requests_dense_summaries_only_when_evidence_supports_them():
     prompt = synthesis_prompt(evidence_pack={"selected_private_excerpts": []}, taxonomy_terms=[])
 
-    assert SYNTHESIS_PROMPT_VERSION == "phase2a-0.4"
+    assert SYNTHESIS_PROMPT_VERSION == "phase2a-0.5"
     assert "150–220 word summary" in prompt
     assert "genuinely sparse" in prompt
+    assert "Do not say that ACNC does not list purposes" in prompt

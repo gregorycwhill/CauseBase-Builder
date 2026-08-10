@@ -1,6 +1,8 @@
 from datetime import date
 
-from causebase_builder.models import CoverageObservation, FinancialPeriod, SourceResolution
+import pytest
+
+from causebase_builder.models import CauseBaseCard, CoverageObservation, FinancialPeriod, SourceResolution
 
 
 def test_source_resolution_keeps_ambiguity_and_review_state_explicit():
@@ -31,3 +33,15 @@ def test_financial_period_preserves_transition_length_and_coverage_absence():
     )
     assert period.is_transitional_or_nonstandard
     assert coverage.status == "not_found_in_source"
+
+
+def test_card_rejects_duplicate_effective_coverage_capabilities():
+    with pytest.raises(ValueError, match="one effective coverage observation"):
+        CauseBaseCard(
+            causebase_id="cb_test", legal_name="Test", display_name="Test", entity_status="registered",
+            causebase_summary="Test", dataset_version="test", built_at="2026-08-10T00:00:00Z",
+            coverage=[
+                CoverageObservation(capability="website", status="observed"),
+                CoverageObservation(capability="website", status="retrieval_failed"),
+            ],
+        )

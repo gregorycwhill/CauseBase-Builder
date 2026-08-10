@@ -249,13 +249,16 @@ def enrich_governed_entity(
     card.geography = output["geography"] or card.geography
     card.participation_modes = output["participation_modes"]
     valid_terms = {term["term_id"]: term for term in taxonomy["terms"]}
-    grounding_ids = [item["evidence_id"] for item in entity.get("evidence", [])]
     external_classifications = list(card.classifications)
     card.classifications = external_classifications + [
         Classification(
             taxonomy_id=taxonomy["taxonomy_id"], taxonomy_version=taxonomy["version"],
             term_id=term_id, term_label=valid_terms[term_id]["label"],
-            assignment_method="llm_classification", confidence="medium", evidence_ids=grounding_ids,
+            # The Phase 2A synthesis schema records selected terms but not a
+            # term-to-evidence assertion map.  Do not fake granular provenance
+            # by attaching every available source (especially ACNC tags) to
+            # every native term.  A later schema can supply exact references.
+            assignment_method="llm_classification", confidence="medium", evidence_ids=[],
         )
         for term_id in output["taxonomy_term_ids"] if term_id in valid_terms
     ]
@@ -267,14 +270,25 @@ def enrich_governed_entity(
             capability="fundraising_expenditure", status="not_available_from_source",
             observed_at=date.today(), freshness_note="No direct or defensible derived fundraising expenditure was found in selected Phase 2A evidence.",
         ))
+    # Public cards expose one effective current state per capability. Source-
+    # level detail belongs in evidence, not apparently contradictory peers.
+    effective_coverage: dict[str, CoverageObservation] = {}
+    for observation in card.coverage:
+        effective_coverage[observation.capability] = observation
+    card.coverage = list(effective_coverage.values())
     card.enrichment_level = "enriched"
-    card.synthesis = SynthesisMetadata.model_validate(provenance)
+    public_provenance = {
+        key: provenance[key]
+        for key in ("model_id", "prompt_version", "parameters", "evidence_input_hash", "generated_at", "editorial_policy_version")
+        if key in provenance
+    }
+    card.synthesis = SynthesisMetadata.model_validate(public_provenance)
     card = CauseBaseCard.model_validate(card.model_dump(mode="json"))
     return card, {
         "causebase_id": card.causebase_id,
         "cache_hit": cache_hit,
         "evidence_input_hash": card.synthesis.evidence_input_hash,
-        "input_tokens": card.synthesis.input_tokens,
-        "output_tokens": card.synthesis.output_tokens,
-        "estimated_cost_usd": str(card.synthesis.estimated_cost_usd) if card.synthesis.estimated_cost_usd is not None else None,
+        "input_tokens": provenance.get("input_tokens"),
+        "output_tokens": provenance.get("output_tokens"),
+        "estimated_cost_usd": provenance.get("estimated_cost_usd"),
     }

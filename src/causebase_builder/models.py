@@ -281,10 +281,6 @@ class SynthesisMetadata(BaseModel):
     evidence_input_hash: str
     generated_at: datetime
     editorial_policy_version: str
-    request_id: str | None = None
-    input_tokens: int | None = Field(default=None, ge=0)
-    output_tokens: int | None = Field(default=None, ge=0)
-    estimated_cost_usd: Decimal | None = Field(default=None, ge=0)
 
 
 class Opportunity(BaseModel):
@@ -365,6 +361,9 @@ class CauseBaseCard(BaseModel):
                 for item in self.coverage
             ):
                 raise ValueError("enriched card without fundraising estimate requires coverage state")
+        capabilities = [item.capability for item in self.coverage]
+        if len(capabilities) != len(set(capabilities)):
+            raise ValueError("card requires one effective coverage observation per capability")
         evidence_ids = {e.evidence_id for e in self.evidence}
         if self.fundraising_expenditure is not None:
             missing = set(self.fundraising_expenditure.evidence_ids) - evidence_ids

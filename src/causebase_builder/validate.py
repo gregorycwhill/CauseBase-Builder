@@ -38,6 +38,9 @@ def validate_card(card: CauseBaseCard) -> list[str]:
     errors = []
     if not card.causebase_id.strip():
         errors.append("blank CauseBase subject ID")
+    capabilities = [observation.capability for observation in card.coverage]
+    if len(capabilities) != len(set(capabilities)):
+        errors.append(f"{card.causebase_id}: duplicate effective coverage capability")
     if card.enrichment_level in {"enriched", "rich"}:
         if card.fundraising_expenditure and card.fundraising_expenditure.normalised_amount is None:
             errors.append(f"{card.causebase_id}: blank fundraising expenditure")
@@ -68,6 +71,10 @@ def validate_card(card: CauseBaseCard) -> list[str]:
     for phrase in ["recommended for you", "best charity", "you should donate"]:
         if phrase in lower:
             errors.append(f"{card.causebase_id}: recommendation language in summary")
+    if card.synthesis and set(card.synthesis.model_dump()) & {
+        "request_id", "input_tokens", "output_tokens", "estimated_cost_usd"
+    }:
+        errors.append(f"{card.causebase_id}: public operational synthesis telemetry")
     return errors
 
 
