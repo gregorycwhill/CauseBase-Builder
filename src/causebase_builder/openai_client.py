@@ -86,7 +86,7 @@ def _output_text(raw: dict[str, Any]) -> str:
 
 def responses_create(
     *, model: str, input_text: str, text_format: dict[str, Any], max_output_tokens: int = 1_200,
-    max_attempts: int = 2, timeout_seconds: int = 60,
+    max_attempts: int = 2, timeout_seconds: int = 60, reasoning: dict[str, Any] | None = None,
 ) -> ApiResult:
     """Create one structured response with at most one bounded retry.
 
@@ -99,6 +99,8 @@ def responses_create(
         "max_output_tokens": max_output_tokens,
         "text": {"format": text_format},
     }
+    if reasoning is not None:
+        payload["reasoning"] = reasoning
     last_error: OpenAIRequestError | None = None
     for attempt in range(max_attempts):
         try:
@@ -142,4 +144,24 @@ def estimate_synthesis_cost(usage: ApiUsage) -> Decimal | None:
     return (
         Decimal(usage.input_tokens) * Decimal("0.25") / Decimal(1_000_000)
         + Decimal(usage.output_tokens) * Decimal("2.00") / Decimal(1_000_000)
+    ).quantize(Decimal("0.000001"))
+
+
+def estimate_response_cost(model: str, usage: ApiUsage) -> Decimal | None:
+    """Estimate text-token cost for approved, replaceable CauseBase models."""
+    if usage.input_tokens is None or usage.output_tokens is None:
+        return None
+    prices = {
+        "gpt-5-mini": ("0.25", "2.00"),
+        "gpt-5-mini-2025-08-07": ("0.25", "2.00"),
+        "gpt-5.6-sol": ("5.00", "30.00"),
+        "gpt-5.6-terra": ("2.00", "12.00"),
+        "gpt-5.6-luna": ("0.20", "1.20"),
+    }
+    input_price, output_price = prices.get(model, prices.get(model.split("-")[0], (None, None)))
+    if input_price is None:
+        return None
+    return (
+        Decimal(usage.input_tokens) * Decimal(input_price) / Decimal(1_000_000)
+        + Decimal(usage.output_tokens) * Decimal(output_price) / Decimal(1_000_000)
     ).quantize(Decimal("0.000001"))
