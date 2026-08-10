@@ -86,7 +86,7 @@ def _output_text(raw: dict[str, Any]) -> str:
 
 def responses_create(
     *, model: str, input_text: str, text_format: dict[str, Any], max_output_tokens: int = 1_200,
-    max_attempts: int = 2,
+    max_attempts: int = 2, timeout_seconds: int = 60,
 ) -> ApiResult:
     """Create one structured response with at most one bounded retry.
 
@@ -102,7 +102,7 @@ def responses_create(
     last_error: OpenAIRequestError | None = None
     for attempt in range(max_attempts):
         try:
-            raw = _post("/responses", payload)
+            raw = _post("/responses", payload, timeout_seconds=timeout_seconds)
             usage = raw.get("usage") or {}
             return ApiResult(
                 response_id=raw.get("id"),

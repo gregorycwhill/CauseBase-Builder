@@ -94,3 +94,45 @@ Material semantic changes require a new taxonomy version.
 Viewer may let users filter by taxonomy, inspect multiple schemes side-by-side, switch lenses, inspect mappings and challenge a classification.
 
 Viewer must not present one taxonomy as universally correct merely because it is the default selection.
+
+## 12. Governed taxonomy maintenance
+
+Per-card classification and taxonomy maintenance are separate operations:
+
+```text
+EVIDENCE
+  ↓
+CARD SYNTHESIS
+  ↓
+CURRENT TAXONOMY CLASSIFICATION
+  ↓
+PRIVATE TAXONOMY PRESSURE SIGNALS
+  ↓
+PERIODIC CORPUS REVIEW
+  ↓
+CHANGE PROPOSALS
+  ↓
+HUMAN GOVERNANCE
+  ↓
+NEW TAXONOMY VERSION
+  ↓
+RECLASSIFICATION
+```
+
+`causebase taxonomy-review` is a private, non-mutating Builder capability.
+It first performs taxonomy-blind concept discovery from derived card content;
+only then does it receive the current CauseBase taxonomy and assignment
+diagnostics. ACNC classifications, labels, mappings and cohort strata are
+excluded from blind discovery and may appear only in a post-hoc comparison
+annex. The command cannot write canonical taxonomy files or alter cards.
+
+Review output is a proposal package, not a taxonomy release. It records input
+hashes, model/prompt metadata and private operational telemetry. A proposal
+may add, split, merge, refine or deprecate a term, but is not canonical until a
+human decision creates a new taxonomy version and explicitly governs any
+affected-card reclassification. Detailed reviewer packets remain private by
+default.
+
+Future synthesis may retain private `unmapped_concepts` and
+`taxonomy_ambiguities` signals. They are not classifications, cannot invent
+term IDs, and are excluded from public card serialisation.

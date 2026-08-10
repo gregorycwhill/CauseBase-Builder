@@ -13,6 +13,7 @@ from .sources.web import extract_web_snapshot
 from .registry import SubjectRegistry
 from .national import build_national_backbone, validate_structured_backbone
 from .validate import mark_manifest_validated, validate_publication
+from .taxonomy_review import run_taxonomy_review
 
 
 def build_demo(args: argparse.Namespace) -> int:
@@ -189,6 +190,21 @@ def build_national(args: argparse.Namespace) -> int:
     return 0
 
 
+def taxonomy_review(args: argparse.Namespace) -> int:
+    result = run_taxonomy_review(
+        corpus_path=Path(args.corpus), taxonomy_path=Path(args.taxonomy), output_dir=Path(args.output),
+        similarities_path=Path(args.similarities) if args.similarities else None, model=args.model,
+        reuse_blind_review=Path(args.reuse_blind_review) if args.reuse_blind_review else None,
+    )
+    review = result["taxonomy_review"]
+    print(
+        f"Completed governed taxonomy review of {review['corpus_subject_count']} cards against "
+        f"{review['baseline_taxonomy_version']}; proposals remain pending human decision."
+    )
+    print(f"Private review package: {Path(args.output).resolve()}")
+    return 0
+
+
 def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="causebase")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -270,6 +286,15 @@ def make_parser() -> argparse.ArgumentParser:
     national.add_argument("--private-output", required=True)
     national.add_argument("--public-output", required=True)
     national.set_defaults(func=build_national)
+
+    review = sub.add_parser("taxonomy-review", help="Run a private, non-mutating governed taxonomy review")
+    review.add_argument("--corpus", required=True, help="Private Phase 2A canonical causebase.json")
+    review.add_argument("--taxonomy", default="config/taxonomies/causebase-v0.json", help="Frozen baseline taxonomy JSON")
+    review.add_argument("--similarities", help="Optional private Phase 2A similarities.json for aggregate diagnostics")
+    review.add_argument("--output", required=True, help="Separate private archive directory for review artefacts")
+    review.add_argument("--reuse-blind-review", help="Private prior taxonomy-review.json with matching frozen blind input; reruns Pass B and annex only")
+    review.add_argument("--model", default="gpt-5-mini", help="Replaceable bounded review model")
+    review.set_defaults(func=taxonomy_review)
     return parser
 
 

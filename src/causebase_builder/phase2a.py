@@ -13,7 +13,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from .models import CauseBaseCard, Classification, CoverageObservation, SynthesisMetadata
+from .models import (
+    CauseBaseCard, Classification, CoverageObservation, SynthesisMetadata,
+    TaxonomyMaintenanceSignals,
+)
 from .pipeline import build_card
 from .synthesis import SYNTHESIS_PROMPT_VERSION, evidence_hash, synthesize_evidence
 from .sources.ais import parse_ais_financial_csv
@@ -248,6 +251,13 @@ def enrich_governed_entity(
     card.beneficiaries = output["beneficiaries"]
     card.geography = output["geography"] or card.geography
     card.participation_modes = output["participation_modes"]
+    # These signals are intentionally private (the model field is excluded from
+    # public serialisation).  They cannot create terms or alter this card's
+    # supplied-term classifications; a periodic taxonomy review governs them.
+    private_taxonomy_signals = TaxonomyMaintenanceSignals.model_validate({
+        "unmapped_concepts": output.get("unmapped_concepts", []),
+        "taxonomy_ambiguities": output.get("taxonomy_ambiguities", []),
+    })
     valid_terms = {term["term_id"]: term for term in taxonomy["terms"]}
     external_classifications = list(card.classifications)
     card.classifications = external_classifications + [
@@ -284,6 +294,7 @@ def enrich_governed_entity(
     }
     card.synthesis = SynthesisMetadata.model_validate(public_provenance)
     card = CauseBaseCard.model_validate(card.model_dump(mode="json"))
+    card.taxonomy_maintenance_signals = private_taxonomy_signals
     return card, {
         "causebase_id": card.causebase_id,
         "cache_hit": cache_hit,

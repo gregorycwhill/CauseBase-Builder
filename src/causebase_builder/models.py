@@ -256,6 +256,33 @@ class Classification(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
 
 
+class UnmappedConcept(BaseModel):
+    """A private signal that supplied taxonomy terms did not fit cleanly.
+
+    It is deliberately not a classification and cannot introduce a term ID.
+    The field is excluded from public card serialisation; periodic taxonomy
+    review is the governed route from these observations to a proposal.
+    """
+
+    dimension: str
+    concept_phrase: str
+    evidence_basis: str
+    reason_no_supplied_term_fits: str
+
+
+class TaxonomyAmbiguity(BaseModel):
+    """A private signal that two or more supplied terms were hard to distinguish."""
+
+    dimension: str
+    candidate_term_ids: list[str] = Field(min_length=2)
+    reason: str
+
+
+class TaxonomyMaintenanceSignals(BaseModel):
+    unmapped_concepts: list[UnmappedConcept] = Field(default_factory=list)
+    taxonomy_ambiguities: list[TaxonomyAmbiguity] = Field(default_factory=list)
+
+
 class EmbeddingMetadata(BaseModel):
     embedding_id: str
     embedding_type: str
@@ -336,6 +363,9 @@ class CauseBaseCard(BaseModel):
     fundraising_expenditure: FundraisingEstimate | None = None
 
     classifications: list[Classification] = Field(default_factory=list)
+    # These are governed working observations, never public card content and
+    # never a route to automatically changing classifications or taxonomy.
+    taxonomy_maintenance_signals: TaxonomyMaintenanceSignals | None = Field(default=None, exclude=True)
     evidence: list[EvidenceRef] = Field(default_factory=list)
 
     embedding: EmbeddingMetadata | None = None

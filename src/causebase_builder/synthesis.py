@@ -23,11 +23,37 @@ SYNTHESIS_SCHEMA: dict[str, Any] = {
             "geography": {"type": "array", "items": {"type": "string"}},
             "participation_modes": {"type": "array", "items": {"type": "string"}},
             "taxonomy_term_ids": {"type": "array", "items": {"type": "string"}},
+            "unmapped_concepts": {
+                "type": "array",
+                "items": {
+                    "type": "object", "additionalProperties": False,
+                    "properties": {
+                        "dimension": {"type": "string"},
+                        "concept_phrase": {"type": "string"},
+                        "evidence_basis": {"type": "string"},
+                        "reason_no_supplied_term_fits": {"type": "string"},
+                    },
+                    "required": ["dimension", "concept_phrase", "evidence_basis", "reason_no_supplied_term_fits"],
+                },
+            },
+            "taxonomy_ambiguities": {
+                "type": "array",
+                "items": {
+                    "type": "object", "additionalProperties": False,
+                    "properties": {
+                        "dimension": {"type": "string"},
+                        "candidate_term_ids": {"type": "array", "items": {"type": "string"}},
+                        "reason": {"type": "string"},
+                    },
+                    "required": ["dimension", "candidate_term_ids", "reason"],
+                },
+            },
             "uncertainty_note": {"type": "string"},
         },
         "required": [
             "summary", "activities", "beneficiaries", "geography",
-            "participation_modes", "taxonomy_term_ids", "uncertainty_note",
+            "participation_modes", "taxonomy_term_ids", "unmapped_concepts",
+            "taxonomy_ambiguities", "uncertainty_note",
         ],
     },
 }
@@ -46,7 +72,7 @@ CauseBase is neutral and descriptive: no recommendations, donation encouragement
 
 When descriptive evidence is sparse, state the positive epistemic limitation in CauseBase terms: CauseBase does not have sufficient descriptive evidence in this release to independently identify specific activities or beneficiaries. Do not say that ACNC does not list purposes, beneficiaries, categories or tags: those external classifications may exist but are deliberately displayed separately and are not native CauseBase inference inputs. Do not infer activities from a name.
 
-Return the required JSON. Field values must be plain evidence-grounded phrases, not taxonomy labels, evaluative language or inferred outcomes. `taxonomy_term_ids` may contain only supplied IDs and must be a small set (normally no more than eight) of terms directly supported by selected evidence. Do not assign broad terms merely because they might be compatible with an organisation; use an empty list when none is warranted. In particular, regulatory labels such as social welfare, religion, regional/remote, or general charitable purpose do not by themselves establish direct service delivery, general-community beneficiaries, a CauseBase cause term, national reach, or a local operating model. `uncertainty_note` must be empty when there is no material limitation to communicate.
+Return the required JSON. Field values must be plain evidence-grounded phrases, not taxonomy labels, evaluative language or inferred outcomes. `taxonomy_term_ids` may contain only supplied IDs and must be a small set (normally no more than eight) of terms directly supported by selected evidence. Do not assign broad terms merely because they might be compatible with an organisation; use an empty list when none is warranted. In particular, regulatory labels such as social welfare, religion, regional/remote, or general charitable purpose do not by themselves establish direct service delivery, general-community beneficiaries, a CauseBase cause term, national reach, or a local operating model. `unmapped_concepts` and `taxonomy_ambiguities` are private, governed maintenance signals: never invent a term ID, use them only for an evidence-grounded concept that does not fit a supplied term or a real boundary ambiguity, and return empty arrays when none is supported. `uncertainty_note` must be empty when there is no material limitation to communicate.
 
 TAXONOMY TERMS:
 """ + json.dumps(taxonomy_terms, ensure_ascii=False) + "\n\nEVIDENCE PACK:\n" + json.dumps(evidence_pack, ensure_ascii=False)
