@@ -14,6 +14,7 @@ from .registry import SubjectRegistry
 from .national import build_national_backbone, validate_structured_backbone
 from .validate import mark_manifest_validated, validate_publication
 from .taxonomy_review import run_taxonomy_review
+from .taxonomy_workflow import model_review, prepare_review, render_decisions, validate_implemented_change
 
 
 def build_demo(args: argparse.Namespace) -> int:
@@ -205,6 +206,30 @@ def taxonomy_review(args: argparse.Namespace) -> int:
     return 0
 
 
+def taxonomy_review_prepare(args: argparse.Namespace) -> int:
+    result = prepare_review(corpus_path=Path(args.corpus), taxonomy_path=Path(args.taxonomy), output_dir=Path(args.output), similarities_path=Path(args.similarities) if args.similarities else None, previous_review=Path(args.previous_review) if args.previous_review else None)
+    print(f"Prepared deterministic human-governed review {result['review_summary']['review_id']}")
+    return 0
+
+
+def taxonomy_review_validate(args: argparse.Namespace) -> int:
+    validate_implemented_change(corpus_path=Path(args.corpus), baseline_taxonomy_path=Path(args.baseline_taxonomy), candidate_taxonomy_path=Path(args.candidate_taxonomy), decision_record_path=Path(args.decision_record), output_path=Path(args.output))
+    print("Wrote non-mutating taxonomy implementation validation")
+    return 0
+
+
+def taxonomy_review_model_review(args: argparse.Namespace) -> int:
+    result = model_review(review_summary_path=Path(args.review_summary), output_dir=Path(args.output), model=args.model, reasoning_effort=args.reasoning_effort)
+    print(f"Wrote advisory-only model review for {result['model_review']['review_id']}")
+    return 0
+
+
+def taxonomy_review_render_decisions(args: argparse.Namespace) -> int:
+    decisions = render_decisions(decision_record_path=Path(args.decision_record), output_path=Path(args.output))
+    print(f"Rendered {len(decisions)} validated human taxonomy decisions")
+    return 0
+
+
 def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="causebase")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -287,7 +312,7 @@ def make_parser() -> argparse.ArgumentParser:
     national.add_argument("--public-output", required=True)
     national.set_defaults(func=build_national)
 
-    review = sub.add_parser("taxonomy-review", help="Run a private, non-mutating governed taxonomy review")
+    review = sub.add_parser("taxonomy-review", help="Historical model-led v0.1 review runner; use taxonomy-review-prepare for the durable workflow")
     review.add_argument("--corpus", required=True, help="Private Phase 2A canonical causebase.json")
     review.add_argument("--taxonomy", default="config/taxonomies/causebase-v0.json", help="Frozen baseline taxonomy JSON")
     review.add_argument("--similarities", help="Optional private Phase 2A similarities.json for aggregate diagnostics")
@@ -295,6 +320,19 @@ def make_parser() -> argparse.ArgumentParser:
     review.add_argument("--reuse-blind-review", help="Private prior taxonomy-review.json with matching frozen blind input; reruns Pass B and annex only")
     review.add_argument("--model", default="gpt-5-mini", help="Replaceable bounded review model")
     review.set_defaults(func=taxonomy_review)
+
+    prepare = sub.add_parser("taxonomy-review-prepare", help="Prepare a deterministic private human-governed taxonomy review packet")
+    prepare.add_argument("--corpus", required=True); prepare.add_argument("--taxonomy", required=True); prepare.add_argument("--output", required=True); prepare.add_argument("--similarities"); prepare.add_argument("--previous-review")
+    prepare.set_defaults(func=taxonomy_review_prepare)
+    review_validate = sub.add_parser("taxonomy-review-validate", help="Validate an implemented human-approved taxonomy change without mutating data")
+    review_validate.add_argument("--corpus", required=True); review_validate.add_argument("--baseline-taxonomy", required=True); review_validate.add_argument("--candidate-taxonomy", required=True); review_validate.add_argument("--decision-record", required=True); review_validate.add_argument("--output", required=True)
+    review_validate.set_defaults(func=taxonomy_review_validate)
+    model = sub.add_parser("taxonomy-review-model-review", help="Optional advisory model critique of a prepared private packet")
+    model.add_argument("--review-summary", required=True); model.add_argument("--output", required=True); model.add_argument("--model", required=True); model.add_argument("--reasoning-effort", default="high")
+    model.set_defaults(func=taxonomy_review_model_review)
+    decisions = sub.add_parser("taxonomy-review-render-decisions", help="Render validated human decision JSON as Markdown")
+    decisions.add_argument("--decision-record", required=True); decisions.add_argument("--output", required=True)
+    decisions.set_defaults(func=taxonomy_review_render_decisions)
     return parser
 
 

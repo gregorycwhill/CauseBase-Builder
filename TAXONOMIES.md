@@ -97,6 +97,9 @@ Viewer must not present one taxonomy as universally correct merely because it is
 
 ## 12. Governed taxonomy maintenance
 
+The executable workflow and private-artifact contract are documented in
+[`TAXONOMY_REVIEW_WORKFLOW.md`](TAXONOMY_REVIEW_WORKFLOW.md).
+
 Per-card classification and taxonomy maintenance are separate operations:
 
 ```text
@@ -119,19 +122,39 @@ NEW TAXONOMY VERSION
 RECLASSIFICATION
 ```
 
-`causebase taxonomy-review` is a private, non-mutating Builder capability.
-It first performs taxonomy-blind concept discovery from derived card content;
-only then does it receive the current CauseBase taxonomy and assignment
-diagnostics. ACNC classifications, labels, mappings and cohort strata are
-excluded from blind discovery and may appear only in a post-hoc comparison
-annex. The command cannot write canonical taxonomy files or alter cards.
+Taxonomy maintenance is a durable, private, human-governed workflow. Its
+required first stage is deterministic and makes no API call:
 
-Review output is a proposal package, not a taxonomy release. It records input
-hashes, model/prompt metadata and private operational telemetry. A proposal
-may add, split, merge, refine or deprecate a term, but is not canonical until a
-human decision creates a new taxonomy version and explicitly governs any
-affected-card reclassification. Detailed reviewer packets remain private by
-default.
+```text
+causebase taxonomy-review-prepare
+  -> compact review-summary.json, pressure-report.md and empty decision record
+```
+
+PREPARE records exact corpus/taxonomy hashes, taxonomy and dimension
+diagnostics, private taxonomy-pressure coverage, deterministic bounded
+representative cases and questions for people. It is not a proposal generator.
+It never writes canonical taxonomy files or cards. The sampling cap prevents a
+future reviewer from receiving the whole corpus by accident.
+
+`causebase taxonomy-review-model-review` is optional advisory analysis of that
+compact packet. Its output is deliberately separate from the human decision
+record and records model, reasoning setting, input hash, token usage and cost
+privately. A model finding cannot create a taxonomy change. The legacy
+`causebase taxonomy-review` v0.1 packages remain historical advisory evidence.
+
+Humans record governed outcomes (`approve`, `reject`, `defer`, `watch`,
+`request_more_evidence`, or `modify`) in `decision-record.json`; use
+`causebase taxonomy-review-render-decisions` to render them as Markdown. Only
+then may a separately implemented candidate taxonomy be checked with
+`causebase taxonomy-review-validate`. VALIDATE compares baseline/candidate and
+decisions, estimates current-card impact and required rebuilds, but does not
+regenerate, reclassify or publish anything.
+
+ACNC classifications, labels, mappings and cohort strata are excluded from
+native PREPARE pressure inputs. They may only be examined separately as a
+post-hoc diagnostic. Private `unmapped_concepts` and
+`taxonomy_ambiguities` remain noncanonical maintenance observations; absence
+on older cards means coverage is unavailable, not that no pressure exists.
 
 Future synthesis may retain private `unmapped_concepts` and
 `taxonomy_ambiguities` signals. They are not classifications, cannot invent
