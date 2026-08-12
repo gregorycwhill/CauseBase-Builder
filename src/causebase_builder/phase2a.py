@@ -247,6 +247,11 @@ def enrich_governed_entity(
 
     card = build_card(entity, dataset_version)
     card.causebase_summary = output["summary"].strip()
+    known_evidence_ids = {item.evidence_id for item in card.evidence}
+    card.summary_evidence_ids = [
+        evidence_id for evidence_id in output.get("summary_evidence_ids", [])
+        if evidence_id in known_evidence_ids
+    ] or [item.evidence_id for item in card.evidence[:1]]
     card.activities = output["activities"]
     card.beneficiaries = output["beneficiaries"]
     card.geography = output["geography"] or card.geography

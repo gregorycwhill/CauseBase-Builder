@@ -361,6 +361,15 @@ class SourceNativeRecord(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
 
 
+class NavigationGeography(BaseModel):
+    """Small controlled geography projection used only for navigation."""
+
+    level: Literal["country", "state_territory", "region_locality"]
+    code: str
+    label: str
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
 class FundingSourceObservation(BaseModel):
     source_type: Literal[
         "government_grants_or_contracts", "individual_donations", "regular_giving",
@@ -418,8 +427,10 @@ class CauseBaseCard(BaseModel):
 
     website: str | None = None
     geography: list[str] = Field(default_factory=list)
+    navigation_geography: list[NavigationGeography] = Field(default_factory=list)
 
     causebase_summary: str
+    summary_evidence_ids: list[str] = Field(default_factory=list)
     organisation_self_description: str | None = None
 
     activities: list[str] = Field(default_factory=list)

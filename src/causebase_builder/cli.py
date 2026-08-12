@@ -66,7 +66,7 @@ def validate_existing(args: argparse.Namespace) -> int:
 
 def project_phase2b_release(args: argparse.Namespace) -> int:
     output = Path(args.output)
-    project_phase2b(Path(args.input), output, args.dataset_version)
+    project_phase2b(Path(args.input), output, args.dataset_version, archive_root=Path(args.archive_root), cache_root=Path(args.cache_root), model=args.model)
     errors = validate_publication(output)
     mark_manifest_validated(output, errors)
     if errors:
@@ -273,6 +273,9 @@ def make_parser() -> argparse.ArgumentParser:
     phase2b.add_argument("--input", required=True, help="Historical validated public release directory")
     phase2b.add_argument("--output", required=True, help="New empty candidate directory")
     phase2b.add_argument("--dataset-version", required=True)
+    phase2b.add_argument("--archive-root", required=True, help="Private evidence archive required for the RC2 editorial migration")
+    phase2b.add_argument("--cache-root", required=True, help="Private content-addressed synthesis cache")
+    phase2b.add_argument("--model", default="gpt-5-mini")
     phase2b.set_defaults(func=project_phase2b_release)
 
     paths = sub.add_parser("paths", help="Show configured durable/runtime/public-data paths")

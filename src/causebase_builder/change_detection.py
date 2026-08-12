@@ -78,10 +78,14 @@ def build_change_profile(previous: dict[str, Any], current: dict[str, Any]) -> C
     return ChangeProfile(tuple(changed), numeric, added, removed, hashlib.sha256(_canonical(payload).encode()).hexdigest())
 
 
-def refresh_targets(profile: ChangeProfile) -> dict[str, str]:
+def refresh_targets(profile: ChangeProfile, *, previous_contract: dict[str, Any] | None = None, current_contract: dict[str, Any] | None = None) -> dict[str, str]:
     """Return ``reuse``, ``refresh`` or ``undecided`` for every derivative."""
     changed = set(profile.changed_dimensions)
     decisions = {derivative: "reuse" for derivative in DERIVATIVES}
+    # Editorial policy, prompt and output contract are semantic inputs too.
+    # Unchanged evidence does not make an old summary reusable.
+    if previous_contract is not None and current_contract is not None and _canonical(previous_contract) != _canonical(current_contract):
+        decisions["summary"] = "refresh"
     if changed & {"activities", "beneficiaries", "geography", "descriptive"}:
         for derivative in ("summary", "taxonomy", "embedding", "similarities"):
             decisions[derivative] = "refresh"

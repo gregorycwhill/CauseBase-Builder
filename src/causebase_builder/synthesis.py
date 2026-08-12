@@ -8,7 +8,7 @@ from typing import Any
 from .openai_client import ApiResult, estimate_synthesis_cost, responses_create
 
 
-SYNTHESIS_PROMPT_VERSION = "phase2a-0.5"
+SYNTHESIS_PROMPT_VERSION = "phase2b-rc2-1"
 SYNTHESIS_SCHEMA: dict[str, Any] = {
     "type": "json_schema",
     "name": "causebase_phase2a_synthesis",
@@ -18,6 +18,7 @@ SYNTHESIS_SCHEMA: dict[str, Any] = {
         "additionalProperties": False,
         "properties": {
             "summary": {"type": "string"},
+            "summary_evidence_ids": {"type": "array", "items": {"type": "string"}},
             "activities": {"type": "array", "items": {"type": "string"}},
             "beneficiaries": {"type": "array", "items": {"type": "string"}},
             "geography": {"type": "array", "items": {"type": "string"}},
@@ -51,7 +52,7 @@ SYNTHESIS_SCHEMA: dict[str, Any] = {
             "uncertainty_note": {"type": "string"},
         },
         "required": [
-            "summary", "activities", "beneficiaries", "geography",
+            "summary", "summary_evidence_ids", "activities", "beneficiaries", "geography",
             "participation_modes", "taxonomy_term_ids", "unmapped_concepts",
             "taxonomy_ambiguities", "uncertainty_note",
         ],
@@ -68,11 +69,11 @@ def synthesis_prompt(*, evidence_pack: dict[str, Any], taxonomy_terms: list[dict
     """Create a compact, evidence-only prompt; callers must not persist it publicly."""
     return """You write a CauseBase Card from the supplied evidence only. Use plain Australian English.
 
-CauseBase is neutral and descriptive: no recommendations, donation encouragement, claims of effectiveness, value judgements, promotional adjectives, or invented detail. Describe concrete activity, beneficiaries, geography and participation where the evidence supports them. Treat organisation-authored claims as claims rather than independent fact. Preserve disagreements and gaps. Do not turn a mission statement into CauseBase voice. Where selected website or report excerpts contain enough concrete information, write a dense 150–220 word summary with multiple grounded details; do not merely compress the evidence into a short abstract. A summary may be shorter only where the selected evidence is genuinely sparse. Never pad a summary with generalities or unsupported detail.
+CauseBase is neutral and descriptive: no recommendations, donation encouragement, claims of effectiveness, value judgements, promotional adjectives, or invented detail. Write natural reader-first prose: state what the organisation is, where it operates when supported, and the concrete work it undertakes. Do not begin routine sentences with provenance-first wording such as "the website says", "regulatory filings show" or "the available evidence". Routine provenance belongs in citations; retain attribution in prose only for claimed impacts, contested facts or genuine uncertainty. Do not repeat revenue, expenses, staff or other structured financial facts in the summary. Where selected website or report excerpts contain enough concrete information, write a dense 100–180 word summary; a summary may be shorter where evidence is genuinely sparse. Never pad with generalities or unsupported detail.
 
 When descriptive evidence is sparse, state the positive epistemic limitation in CauseBase terms: CauseBase does not have sufficient descriptive evidence in this release to independently identify specific activities or beneficiaries. Do not say that ACNC does not list purposes, beneficiaries, categories or tags: those external classifications may exist but are deliberately displayed separately and are not native CauseBase inference inputs. Do not infer activities from a name.
 
-Return the required JSON. Field values must be plain evidence-grounded phrases, not taxonomy labels, evaluative language or inferred outcomes. `taxonomy_term_ids` may contain only supplied IDs and must be a small set (normally no more than eight) of terms directly supported by selected evidence. Do not assign broad terms merely because they might be compatible with an organisation; use an empty list when none is warranted. In particular, regulatory labels such as social welfare, religion, regional/remote, or general charitable purpose do not by themselves establish direct service delivery, general-community beneficiaries, a CauseBase cause term, national reach, or a local operating model. `unmapped_concepts` and `taxonomy_ambiguities` are private, governed maintenance signals: never invent a term ID, use them only for an evidence-grounded concept that does not fit a supplied term or a real boundary ambiguity, and return empty arrays when none is supported. `uncertainty_note` must be empty when there is no material limitation to communicate.
+Return the required JSON. `summary_evidence_ids` must contain the source_index evidence IDs supporting the summary (normally one to three); never invent IDs. Field values must be plain evidence-grounded phrases, not taxonomy labels, evaluative language or inferred outcomes. `taxonomy_term_ids` may contain only supplied IDs and must be a small set (normally no more than eight) of terms directly supported by selected evidence. Do not assign broad terms merely because they might be compatible with an organisation; use an empty list when none is warranted. In particular, regulatory labels such as social welfare, religion, regional/remote, or general charitable purpose do not by themselves establish direct service delivery, general-community beneficiaries, a CauseBase cause term, national reach, or a local operating model. `unmapped_concepts` and `taxonomy_ambiguities` are private, governed maintenance signals: never invent a term ID, use them only for an evidence-grounded concept that does not fit a supplied term or a real boundary ambiguity, and return empty arrays when none is supported. `uncertainty_note` must be empty when there is no material limitation to communicate.
 
 TAXONOMY TERMS:
 """ + json.dumps(taxonomy_terms, ensure_ascii=False) + "\n\nEVIDENCE PACK:\n" + json.dumps(evidence_pack, ensure_ascii=False)

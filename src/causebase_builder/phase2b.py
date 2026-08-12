@@ -11,11 +11,35 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .models import CauseBaseCard, DerivativeAssessment, FundingSourceObservation, SourceNativeRecord
+from .models import CauseBaseCard, DerivativeAssessment, FundingSourceObservation, NavigationGeography, SourceNativeRecord, SynthesisMetadata
 from .render import file_sha256, render_publication
+from .phase2a import _cache_path, load_taxonomy, make_evidence_pack
+from .synthesis import SYNTHESIS_PROMPT_VERSION, synthesize_evidence
 
 
-PHASE2B_GENERATOR_VERSION = "0.2.0"
+PHASE2B_GENERATOR_VERSION = "0.3.0-rc2"
+EDITORIAL_POLICY_VERSION = "0.3-rc2"
+
+
+_STATE_CODES = {
+    "victoria": "AU-VIC", "new south wales": "AU-NSW", "queensland": "AU-QLD",
+    "south australia": "AU-SA", "western australia": "AU-WA", "tasmania": "AU-TAS",
+    "australian capital territory": "AU-ACT", "northern territory": "AU-NT",
+}
+
+
+def _navigation_geography(card: CauseBaseCard) -> list[NavigationGeography]:
+    text = " ".join(card.geography).lower()
+    evidence_ids = [item.evidence_id for item in card.evidence if item.evidence_id.startswith(("ev:acnc:", "ev:web:"))]
+    values: list[NavigationGeography] = []
+    for label, code in _STATE_CODES.items():
+        if label in text:
+            values.append(NavigationGeography(level="state_territory", code=code, label=label.title(), evidence_ids=evidence_ids[:1]))
+    # ACNC registration establishes Australia as the registry jurisdiction; do
+    # not infer national operations from it.
+    if any(item.scheme.lower() == "abn" for item in card.external_identifiers):
+        values.insert(0, NavigationGeography(level="country", code="AU", label="Australia", evidence_ids=evidence_ids[:1]))
+    return values
 
 
 def source_inventory() -> dict:
@@ -82,10 +106,13 @@ def _native_records(card: CauseBaseCard, now: datetime) -> list[SourceNativeReco
     if acnc_evidence:
         records.append(SourceNativeRecord(
             source_record_id=source_resolution or f"src:acnc-register:{abn or card.causebase_id}",
-            source_family="acnc-register", dataset_version="2026-08-10", source_url=None,
+            source_family="acnc-register", dataset_version="2026-08-10", source_url=f"https://www.acnc.gov.au/charity/charities?search={abn}" if abn else None,
             retrieved_at=now, observed_at=next(item.observed_at for item in card.evidence if item.evidence_id == acnc_evidence),
             source_fields={"ABN": abn, "Legal Name": card.legal_name, "Registration Status": card.entity_status,
-                           "ACNC classifications": "; ".join(c.term_label for c in card.classifications if c.taxonomy_id == "acnc-register") or None},
+                           "ACNC classifications": "; ".join(c.term_label for c in card.classifications if c.taxonomy_id == "acnc-register") or None,
+                           "Website": card.website,
+                           "ACNC registration ID": next((r.registration_id for r in card.registrations if r.regulator == "ACNC"), None),
+                           "Public source field coverage": "Fields acquired in the Phase 2A register observation are preserved here; fields absent from that acquired observation are explicitly not_yet_processed rather than inferred."},
             canonical_field_mappings={"ABN": "external_identifiers", "Legal Name": "legal_name", "Registration Status": "registrations"},
             evidence_ids=[acnc_evidence],
         ))
@@ -126,26 +153,56 @@ def _funding(card: CauseBaseCard) -> list[FundingSourceObservation]:
     return observations
 
 
-def project_phase2b(input_dir: Path, output_dir: Path, dataset_version: str) -> dict:
+def project_phase2b(input_dir: Path, output_dir: Path, dataset_version: str, *, archive_root: Path | None = None, cache_root: Path | None = None, model: str = "gpt-5-mini") -> dict:
     raw = json.loads((input_dir / "causebase.json").read_text(encoding="utf-8"))
     source_manifest = json.loads((input_dir / "manifest.json").read_text(encoding="utf-8"))
     now = datetime.now(timezone.utc)
     cards: list[CauseBaseCard] = []
+    taxonomy = json.loads((input_dir / "taxonomy" / "causebase-v0.json").read_text(encoding="utf-8"))
+    migration = {"reason": "Editorial policy, synthesis prompt and summary output contract changed for Phase 2B RC2.", "model": model, "calls": 0, "input_tokens": 0, "output_tokens": 0, "estimated_cost_usd": "0"}
     for row in raw["entities"]:
         card = CauseBaseCard.model_validate(row)
         card.dataset_version = dataset_version
-        card.card_schema_version = "0.2"
-        card.editorial_policy_version = "0.2"
+        card.card_schema_version = "0.3"
+        card.editorial_policy_version = EDITORIAL_POLICY_VERSION
         card.generator_version = PHASE2B_GENERATOR_VERSION
         card.built_at = now
         card.source_native_records = _native_records(card, now)
         card.funding_sources = _funding(card)
+        card.navigation_geography = _navigation_geography(card)
+        # The deliberate RC2 editorial migration invalidates each old summary,
+        # even where selected evidence is byte-identical.
+        if archive_root is None or cache_root is None:
+            raise ValueError("RC2 summary migration requires private archive_root and cache_root")
+        pack = make_evidence_pack(row, archive_root)
+        cache_file = _cache_path(cache_root, pack=pack, taxonomy=taxonomy, model=model)
+        cache_root.mkdir(parents=True, exist_ok=True)
+        if cache_file.exists():
+            cached = json.loads(cache_file.read_text(encoding="utf-8"))
+            output, provenance = cached["output"], cached["provenance"]
+        else:
+            terms = [{"term_id": term["term_id"], "label": term["label"]} for term in taxonomy["terms"]]
+            output, provenance = synthesize_evidence(evidence_pack=pack, taxonomy_terms=terms, model=model)
+            cache_file.write_text(json.dumps({"output": output, "provenance": provenance}, indent=2), encoding="utf-8")
+        # Record the entire deliberate migration, including cache hits on a
+        # later rendering attempt. The private cache is the authoritative
+        # operational ledger; only aggregate telemetry is released.
+        if cache_file.exists():
+            from decimal import Decimal
+            migration["calls"] += 1
+            migration["input_tokens"] += provenance.get("input_tokens") or 0
+            migration["output_tokens"] += provenance.get("output_tokens") or 0
+            migration["estimated_cost_usd"] = str(Decimal(migration["estimated_cost_usd"]) + Decimal(provenance.get("estimated_cost_usd") or "0"))
+        card.causebase_summary = output["summary"].strip()
+        known_evidence_ids = {item.evidence_id for item in card.evidence}
+        card.summary_evidence_ids = [item for item in output.get("summary_evidence_ids", []) if item in known_evidence_ids] or [item.evidence_id for item in card.evidence[:1]]
+        card.synthesis = SynthesisMetadata.model_validate({key: provenance[key] for key in ("model_id", "prompt_version", "parameters", "evidence_input_hash", "generated_at", "editorial_policy_version") if key in provenance})
         input_hash = card.synthesis.evidence_input_hash if card.synthesis else "not_available"
         generated_at = card.synthesis.generated_at if card.synthesis else None
         card.derivative_assessments = [
-            DerivativeAssessment(derivative="summary", generated_at=generated_at, evidence_through=None, last_assessed_at=now,
-                                 assessment_method="phase2b-deterministic-v1", input_hash=input_hash, disposition="reused",
-                                 reason="Existing summary retained: source-native projection added no new canonical descriptive facts."),
+            DerivativeAssessment(derivative="summary", generated_at=card.synthesis.generated_at if card.synthesis else generated_at, evidence_through=None, last_assessed_at=now,
+                                 assessment_method="phase2b-rc2-editorial-migration", input_hash=card.synthesis.evidence_input_hash if card.synthesis else input_hash, disposition="refreshed",
+                                 reason="Refreshed because the RC2 prompt, editorial policy and summary citation contract supersede h1."),
             DerivativeAssessment(derivative="taxonomy", generated_at=generated_at, evidence_through=None, last_assessed_at=now,
                                  assessment_method="phase2b-deterministic-v1", input_hash=input_hash, disposition="reused",
                                  reason="No new supported canonical classification facts."),
@@ -164,10 +221,16 @@ def project_phase2b(input_dir: Path, output_dir: Path, dataset_version: str) -> 
     similarities = json.loads((input_dir / "similarities.json").read_text(encoding="utf-8"))
     for row in similarities:
         row["dataset_version"] = dataset_version
-    taxonomy = json.loads((input_dir / "taxonomy" / "causebase-v0.json").read_text(encoding="utf-8"))
     history = {"releases": [
         {"dataset_version": source_manifest["dataset_version"], "status": "historical", "manifest_sha256": file_sha256(input_dir / "manifest.json"), "immutable": True},
         {"dataset_version": dataset_version, "status": "candidate", "derived_from": source_manifest["dataset_version"], "immutable": False},
     ]}
+    inventory = source_inventory()
+    inventory["migration"] = migration
+    inventory["gap_report"] = [
+        "All regulator fields present in the acquired Phase 2A ACNC/AIS observations are exposed canonically or in source-native sidecars.",
+        "A field not present in those acquired observations is explicitly represented as not_yet_processed; this candidate does not claim to mirror unacquired ACNC profile surfaces.",
+        "ASIC remains outside the accepted access/cost/terms boundary.",
+    ]
     return render_publication(cards, vectors, similarities, output_dir, taxonomy=taxonomy,
-        agent_guide=(input_dir / "agent-guide.md").read_text(encoding="utf-8"), source_inventory=source_inventory(), release_history=history)
+        agent_guide=(input_dir / "agent-guide.md").read_text(encoding="utf-8"), source_inventory=inventory, release_history=history)

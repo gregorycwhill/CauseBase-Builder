@@ -91,7 +91,7 @@ def test_external_acnc_classifications_are_not_native_inference_or_semantic_inpu
 def test_current_synthesis_prompt_requests_dense_summaries_only_when_evidence_supports_them():
     prompt = synthesis_prompt(evidence_pack={"selected_private_excerpts": []}, taxonomy_terms=[])
 
-    assert SYNTHESIS_PROMPT_VERSION == "phase2a-0.5"
-    assert "150–220 word summary" in prompt
+    assert SYNTHESIS_PROMPT_VERSION == "phase2b-rc2-1"
+    assert "100–180 word summary" in prompt
     assert "genuinely sparse" in prompt
     assert "Do not say that ACNC does not list purposes" in prompt
