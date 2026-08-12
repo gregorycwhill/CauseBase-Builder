@@ -111,6 +111,17 @@ class SubjectRelationship(BaseModel):
     target_causebase_id: str
     evidence_ids: list[str] = Field(default_factory=list)
     note: str | None = None
+    valid_from: date | None = None
+    valid_to: date | None = None
+    observed_at: date | None = None
+    confidence: Literal["high", "medium", "low"] | None = None
+    status: Literal["asserted", "historical", "ended", "uncertain"] = "asserted"
+
+    @model_validator(mode="after")
+    def validate_temporal_range(self):
+        if self.valid_from and self.valid_to and self.valid_from > self.valid_to:
+            raise ValueError("relationship valid_from cannot follow valid_to")
+        return self
 
 
 class CoverageObservation(BaseModel):
@@ -330,6 +341,67 @@ class Opportunity(BaseModel):
     status: Literal["current", "stale", "unknown"] = "unknown"
 
 
+class SourceNativeRecord(BaseModel):
+    """A public-safe, source-specific observation, never a universal claim.
+
+    The record retains source field names and time independently of the
+    canonical card. Large raw archives and copyrighted documents remain private.
+    """
+
+    source_record_id: str
+    source_family: str
+    dataset_version: str
+    source_url: str | None = None
+    retrieved_at: datetime
+    observed_at: date | None = None
+    effective_from: date | None = None
+    effective_to: date | None = None
+    source_fields: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+    canonical_field_mappings: dict[str, str] = Field(default_factory=dict)
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class FundingSourceObservation(BaseModel):
+    source_type: Literal[
+        "government_grants_or_contracts", "individual_donations", "regular_giving",
+        "bequests", "major_gifts", "philanthropic_grants", "corporate_support",
+        "service_or_earned_income", "investment_income", "other",
+    ]
+    period_label: str | None = None
+    source_label: str | None = None
+    amount: MoneyObservation | None = None
+    share: Decimal | None = Field(default=None, ge=0, le=1)
+    reporting_scope: Literal["subject", "organisation_group", "consolidated_group", "unknown"] = "unknown"
+    method: DerivationMethod = "direct_extract"
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class FundraisingMethodObservation(BaseModel):
+    method: Literal[
+        "regular_giving", "face_to_face", "direct_mail", "telephone", "digital_advertising",
+        "appeals", "major_donor_program", "bequest_program", "fundraising_events",
+        "community_fundraising", "workplace_giving", "peer_to_peer", "corporate_partnerships",
+        "raffles_or_lotteries", "other",
+    ]
+    first_seen: date | None = None
+    last_seen: date | None = None
+    observed_at: date | None = None
+    status: Literal["current", "historical", "stale", "unknown"] = "unknown"
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class DerivativeAssessment(BaseModel):
+    derivative: Literal["summary", "taxonomy", "fundraising", "embedding", "similarities"]
+    generated_at: datetime | None = None
+    evidence_through: date | None = None
+    last_assessed_at: datetime
+    assessment_method: str
+    input_hash: str
+    disposition: Literal["reused", "refreshed", "not_applicable"]
+    reason: str
+    affected_dimensions: list[str] = Field(default_factory=list)
+
+
 class CauseBaseCard(BaseModel):
     causebase_id: str
     subject_kind: SubjectKind = "organisation"
@@ -355,12 +427,19 @@ class CauseBaseCard(BaseModel):
     participation_modes: list[str] = Field(default_factory=list)
     opportunities: list[Opportunity] = Field(default_factory=list)
 
+    # Source-native observations are intentionally separated from the concise
+    # canonical card; consumers can inspect regulator semantics without
+    # CauseBase pretending every source field is universal.
+    source_native_records: list[SourceNativeRecord] = Field(default_factory=list)
+
     financial_records: list[Financials] = Field(default_factory=list)
     financial_metrics: list[FinancialMetricSet] = Field(default_factory=list)
     # Some genuine charities do not disclose a defensible fundraising figure.
     # A null is an honest publication state, not permission to use a universal
     # synthetic percentage.
     fundraising_expenditure: FundraisingEstimate | None = None
+    funding_sources: list[FundingSourceObservation] = Field(default_factory=list)
+    fundraising_methods: list[FundraisingMethodObservation] = Field(default_factory=list)
 
     classifications: list[Classification] = Field(default_factory=list)
     # These are governed working observations, never public card content and
@@ -370,6 +449,7 @@ class CauseBaseCard(BaseModel):
 
     embedding: EmbeddingMetadata | None = None
     synthesis: SynthesisMetadata | None = None
+    derivative_assessments: list[DerivativeAssessment] = Field(default_factory=list)
 
     dataset_version: str
     card_schema_version: str = "0.1"
@@ -409,6 +489,13 @@ class CauseBaseCard(BaseModel):
                 "relationship evidence IDs missing from card: "
                 f"{sorted(relationship_missing)}"
             )
+        source_native_missing = {
+            evidence_id
+            for source_record in self.source_native_records
+            for evidence_id in source_record.evidence_ids
+        } - evidence_ids
+        if source_native_missing:
+            raise ValueError(f"source-native evidence IDs missing from card: {sorted(source_native_missing)}")
         financial_record_ids = {
             financial_record.financial_record_id
             for financial_record in self.financial_records
@@ -432,4 +519,7 @@ class CauseBaseCard(BaseModel):
                 raise ValueError(
                     f"financial metric references unknown records: {sorted(unknown_records)}"
                 )
+        assessment_names = [assessment.derivative for assessment in self.derivative_assessments]
+        if len(assessment_names) != len(set(assessment_names)):
+            raise ValueError("card requires one current derivative assessment per derivative")
         return self

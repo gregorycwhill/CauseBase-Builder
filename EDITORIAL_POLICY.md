@@ -3,6 +3,10 @@
 **Status:** Canonical editorial and LLM synthesis policy  
 **Version:** 0.1
 
+## Phase 2B provenance presentation
+
+Write natural CauseBase prose for concrete, well-supported descriptive facts. Put ordinary provenance in structural citations, linked evidence and field metadata rather than repeating “the website says” or “filings show” in each sentence. Retain explicit attribution for mission statements, claimed outcomes, evaluation, contested claims and forward-looking organisation-authored assertions. Financial values belong primarily in structured sections; never make an estimate look directly reported.
+
 ## 1. Purpose
 
 CauseBase produces neutral, information-dense descriptions of Australian charities from public evidence.

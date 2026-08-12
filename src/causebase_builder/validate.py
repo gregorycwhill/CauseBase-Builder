@@ -28,10 +28,20 @@ def is_allowed_public_path(relative_path: str) -> bool:
         "taxonomy/causebase-v0.json",
         "coverage.json",
         "agent-guide.md",
+        "source-inventory.json",
+        "release-history.json",
     }:
         return True
     parts = relative_path.split("/")
-    return len(parts) == 2 and parts[0] == "cards" and (parts[1].endswith(".md") or parts[1].endswith(".json"))
+    return (
+        len(parts) == 2
+        and parts[0] in {"cards", "source-records"}
+        and (
+            parts[1].endswith((".md", ".json"))
+            if parts[0] == "cards"
+            else parts[1].endswith(".json")
+        )
+    )
 
 
 def validate_card(card: CauseBaseCard) -> list[str]:

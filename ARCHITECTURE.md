@@ -3,6 +3,14 @@
 **Status:** Canonical Builder architecture; public models are provisional through the reality spike  
 **Version:** 0.1
 
+## Phase 2B longitudinal source contract
+
+Builder persists source-native records beside, not inside, canonical cards. Each record has a source family, dataset/version, source-record ID, original field names, retrieval/observation time, effective period where known and evidence IDs. Public sidecars contain safe structured observations; raw archives, report text and private working evidence stay outside the publication bundle.
+
+Financial records append by reporting period. A current card projection may select the latest applicable observation but must retain prior periods. Relationships support validity and observation time, so ordinary organisational change does not require a new CauseBase ID. ACNC reporting arrangements remain regulator observations, not brand/federation assertions.
+
+The deterministic change gate returns a change profile and per-derivative reuse/refresh/undecided decision. Only an ambiguous meaning change is eligible for a bounded low-cost semantic assessment; expensive synthesis and embeddings run only after invalidation.
+
 ## 1. Architectural idea
 
 CauseBase Builder behaves like a compiler.

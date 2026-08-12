@@ -182,12 +182,16 @@ def render_publication(
     require_parquet: bool = True,
     taxonomy: dict | None = None,
     agent_guide: str | None = None,
+    source_inventory: dict | None = None,
+    release_history: dict | None = None,
 ) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     cards_dir = output_dir / "cards"
     schema_dir = output_dir / "schema"
+    source_records_dir = output_dir / "source-records"
     cards_dir.mkdir(exist_ok=True)
     schema_dir.mkdir(exist_ok=True)
+    source_records_dir.mkdir(exist_ok=True)
 
     json_rows = [_jsonable(c) for c in cards]
 
@@ -238,6 +242,14 @@ def render_publication(
         (output_dir / card_json_locator(card)).write_text(
             json.dumps(_jsonable(card), indent=2, ensure_ascii=False), encoding="utf-8"
         )
+        for record in card.source_native_records:
+            # Source records are sidecars for direct developer inspection.  A
+            # collision is valid only when it serialises to identical content.
+            target = source_records_dir / f"{quote(record.source_record_id, safe='')}.json"
+            content = json.dumps(record.model_dump(mode="json"), indent=2, ensure_ascii=False)
+            if target.exists() and target.read_text(encoding="utf-8") != content:
+                raise ValueError(f"conflicting public source-native record: {record.source_record_id}")
+            target.write_text(content, encoding="utf-8")
 
     (schema_dir / "card.schema.json").write_text(
         json.dumps(CauseBaseCard.model_json_schema(), indent=2),
@@ -265,6 +277,14 @@ def render_publication(
     )
     if agent_guide is not None:
         (output_dir / "agent-guide.md").write_text(agent_guide, encoding="utf-8")
+    if source_inventory is not None:
+        (output_dir / "source-inventory.json").write_text(
+            json.dumps(source_inventory, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+    if release_history is not None:
+        (output_dir / "release-history.json").write_text(
+            json.dumps(release_history, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     parquet_status = "written"
     try:

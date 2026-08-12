@@ -15,6 +15,7 @@ from .national import build_national_backbone, validate_structured_backbone
 from .validate import mark_manifest_validated, validate_publication
 from .taxonomy_review import run_taxonomy_review
 from .taxonomy_workflow import model_review, prepare_review, render_decisions, validate_implemented_change
+from .phase2b import project_phase2b
 
 
 def build_demo(args: argparse.Namespace) -> int:
@@ -60,6 +61,20 @@ def validate_existing(args: argparse.Namespace) -> int:
             print(f"- {error}")
         return 2
     print("Validation passed")
+    return 0
+
+
+def project_phase2b_release(args: argparse.Namespace) -> int:
+    output = Path(args.output)
+    project_phase2b(Path(args.input), output, args.dataset_version)
+    errors = validate_publication(output)
+    mark_manifest_validated(output, errors)
+    if errors:
+        print("PHASE 2B PROJECTION FAILED VALIDATION")
+        for error in errors:
+            print(f"- {error}")
+        return 2
+    print(f"Built Phase 2B candidate {args.dataset_version}: {output.resolve()}")
     return 0
 
 
@@ -253,6 +268,12 @@ def make_parser() -> argparse.ArgumentParser:
     val = sub.add_parser("validate", help="Validate an existing publication candidate")
     val.add_argument("--output", default="dist/demo")
     val.set_defaults(func=validate_existing)
+
+    phase2b = sub.add_parser("project-phase2b", help="Create an append-only Phase 2B release from a validated historical release")
+    phase2b.add_argument("--input", required=True, help="Historical validated public release directory")
+    phase2b.add_argument("--output", required=True, help="New empty candidate directory")
+    phase2b.add_argument("--dataset-version", required=True)
+    phase2b.set_defaults(func=project_phase2b_release)
 
     paths = sub.add_parser("paths", help="Show configured durable/runtime/public-data paths")
     paths.add_argument("--workspace", default="..", help="CauseBase workspace root")

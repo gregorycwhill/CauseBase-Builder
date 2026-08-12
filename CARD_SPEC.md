@@ -3,6 +3,12 @@
 **Status:** Provisional shared CauseBase product contract — subject to reality spike  
 **Version:** 0.1-draft
 
+## Phase 2B additions
+
+Cards now distinguish source-native observations from canonical fields and derived artefacts. `source_native_records[]` preserves source family/version, source-record identity, observed/retrieved/effective time, source field names, explicit mappings and evidence. `financial_records[]` is longitudinal and append-only. `relationships[]` can include `valid_from`, `valid_to`, `observed_at`, confidence and status.
+
+`funding_sources[]`, `fundraising_methods[]` and `fundraising_expenditure` are different concepts. The first records where money is evidenced to come from; the second records evidenced methods; the last is a direct or transparently derived expense value. `derivative_assessments[]` says whether an existing summary/classification/fundraising interpretation/embedding/neighbour set was refreshed or intentionally reused and why.
+
 ## 1. Purpose
 
 The CauseBase Card is the central conceptual object in CauseBase.
