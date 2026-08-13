@@ -24,6 +24,10 @@ def test_visual_expense_allocation_is_generic_complete_and_reconciled():
     assert fundraising.direct_observation is True
     assert fundraising.share == Decimal("0.1")
     assert fundraising.derived_amount.normalised_amount == Decimal("585279")
+    assert fundraising.denominator_label == "Total expenses"
+    assert fundraising.denominator_amount.normalised_amount == Decimal("-5852789")
+    assert fundraising.derived_amount_method == "rounded_percentage_x_reported_total"
+    assert fundraising.derived_amount_approximate is True
     assert extract["pages"][0]["vision_escalation"]["validation_outcome"] == "passed_share_sum_and_total_expenses_cross_check"
 
 

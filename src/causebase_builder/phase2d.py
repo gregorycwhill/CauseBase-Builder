@@ -12,7 +12,7 @@ from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from .models import CauseBaseCard, ComparativePeriodAmount, CoverageObservation, EvidenceRef, FinancialLineItem, Financials, FinancialStatementObservation, FinancialStatementRow, FunctionalExpenseAllocation, FundraisingMethodObservation, FundingSourceObservation, MoneyObservation, ParticipationObservation, ProgramObservation, SourceNativeRecord, StructuredValueObservation, TaxStatus
+from .models import CauseBaseCard, ComparativePeriodAmount, CoverageObservation, DerivativeAssessment, EvidenceRef, FinancialLineItem, Financials, FinancialStatementObservation, FinancialStatementRow, FunctionalExpenseAllocation, FundraisingMethodObservation, FundingSourceObservation, MoneyObservation, ParticipationObservation, ProgramObservation, SourceNativeRecord, StructuredValueObservation, SynthesisMetadata, TaxStatus
 from .render import file_sha256, render_publication
 
 GENERATOR_VERSION = "0.5.0-rc4"
@@ -235,7 +235,7 @@ def _report_period(extract: dict) -> dict:
     return {"period_start": end - timedelta(days=364), "period_end": end, "period_length_days": 365, "label": f"year ended {end.isoformat()}"}
 
 
-def _functional_expense_allocations(extract: dict, evidence_id: str, total_expenses: MoneyObservation | None) -> list[FunctionalExpenseAllocation]:
+def _functional_expense_allocations(extract: dict, evidence_id: str, total_expenses: MoneyObservation | None, period_label: str | None = None) -> list[FunctionalExpenseAllocation]:
     """Validate narrow visual chart output against independently extracted facts.
 
     The visual adapter supplies generic `functional_expense_allocation`
@@ -267,8 +267,9 @@ def _functional_expense_allocations(extract: dict, evidence_id: str, total_expen
         amount = abs(total_expenses.normalised_amount) * share
         rounded = amount.quantize(Decimal("1"))
         allocations.append(FunctionalExpenseAllocation(
-            source_label=label, share=share, allocation_basis="total_expenses",
+            source_label=label, share=share, denominator_label="Total expenses", denominator_amount=total_expenses, reporting_period_label=period_label, allocation_basis="total_expenses",
             derived_amount=MoneyObservation(source_amount=rounded, normalised_amount=rounded, source_raw_value=f"derived from {item['share_percent']}% × reported total expenses"),
+            derived_amount_method="rounded_percentage_x_reported_total", derived_amount_approximate=True,
             derivation_note="Mechanically derived rounded estimate from reported share and independently extracted total expenses.",
             evidence_ids=[evidence_id], page=item.get("page"), extraction_method=item.get("extraction_method", "narrow_vision_structured"), extraction_confidence=item.get("extraction_confidence", "medium"),
         ))
@@ -308,6 +309,47 @@ def _finalise_visual_validation(card: CauseBaseCard) -> None:
             continue
         for escalation in source_record.source_payload.get("diagnostics", {}).get("vision_escalations", []):
             escalation["validation_outcome"] = "passed_share_sum_and_total_expenses_cross_check"
+
+
+def _accepted_rc2_summaries(input_dir: Path) -> dict[str, dict]:
+    """Load the newest accepted RC2 editorial derivatives, never synthesize."""
+    releases = sorted(input_dir.parent.glob("phase2b-*-rc2"), reverse=True)
+    for release in releases:
+        candidate = release / "causebase.json"
+        manifest = release / "manifest.json"
+        if not candidate.exists() or not manifest.exists():
+            continue
+        if json.loads(manifest.read_text(encoding="utf-8")).get("validation", {}).get("status") != "passed":
+            continue
+        return {row["causebase_id"]: row for row in json.loads(candidate.read_text(encoding="utf-8"))["entities"]}
+    return {}
+
+
+def _inherit_accepted_summary(card: CauseBaseCard, accepted: dict | None, now: datetime) -> None:
+    """Reuse an accepted RC2 summary if all of its cited evidence remains live."""
+    if not accepted:
+        return
+    accepted_ids = set(accepted.get("summary_evidence_ids", []))
+    current_ids = {item.evidence_id for item in card.evidence}
+    if not accepted_ids.issubset(current_ids):
+        return
+    card.causebase_summary = accepted["causebase_summary"]
+    card.summary_evidence_ids = accepted.get("summary_evidence_ids", [])
+    synthesis = accepted.get("synthesis")
+    if synthesis:
+        card.synthesis = SynthesisMetadata.model_validate({
+            **synthesis,
+            "editorial_policy_version": "0.3-rc2",
+            "parameters": {**synthesis.get("parameters", {}), "output_contract": "causebase-summary-v0.3-rc2"},
+        })
+    assessment = DerivativeAssessment(
+        derivative="summary", generated_at=card.synthesis.generated_at if card.synthesis else None,
+        last_assessed_at=now, assessment_method="phase2b-rc4-accepted-rc2-summary-reuse",
+        input_hash=card.synthesis.evidence_input_hash if card.synthesis else "accepted-rc2-summary-without-synthesis-metadata",
+        disposition="reused", reason="Accepted RC2 editorial summary reused; RC4 evidence did not invalidate its cited inputs.",
+        affected_dimensions=["summary"],
+    )
+    card.derivative_assessments = [item for item in card.derivative_assessments if item.derivative != "summary"] + [assessment]
 
 
 def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], now: datetime) -> None:
@@ -364,7 +406,7 @@ def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], no
         statements = _statements(rows, evidence_id, period)
         items = [FinancialLineItem(label=row["label"], category=_category(row["label"]), amount=_money(row["current"]), comparative_amount=_money(row["comparative"]), evidence_ids=[evidence_id], note=f"PDF page {row['page']}; printed page {row.get('printed_page') or 'not detected'}", source_statement="income_statement" if row["statement"] == "profit_and_loss" else "financial_position" if row["statement"] == "financial_position" else "other", source_order=index, canonical_metrics=[target for needle, target, _ in KEYS if needle in row["label"].casefold()] or ([row["section_hint"]] if row.get("unlabelled_numeric_row") and row.get("section_hint") else [])) for index, row in enumerate(rows) if row.get("current")]
         financial_id = f"fr:report:{abn}:{extract['source_sha256'][:16]}"
-        financial = Financials(financial_record_id=financial_id, period=period, reporting_scope="subject", reporting_subject_causebase_id=card.causebase_id, covered_subjects=[card.causebase_id], consolidated="unknown", attribution_method="direct_subject_report", evidence_ids=[evidence_id], revenue=metrics.get("revenue"), employee_costs=metrics.get("employee_costs"), total_expenses=metrics.get("total_expenses"), assets=metrics.get("assets"), liabilities=metrics.get("liabilities"), net_assets=metrics.get("net_assets"), income_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "income"], expense_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "expense"], balance_sheet_breakdown=[x for x in items if x.source_statement == "financial_position"], source_ordered_line_items=items, statements=statements, functional_expense_allocations=_functional_expense_allocations(extract, evidence_id, metrics.get("total_expenses")))
+        financial = Financials(financial_record_id=financial_id, period=period, reporting_scope="subject", reporting_subject_causebase_id=card.causebase_id, covered_subjects=[card.causebase_id], consolidated="unknown", attribution_method="direct_subject_report", evidence_ids=[evidence_id], revenue=metrics.get("revenue"), employee_costs=metrics.get("employee_costs"), total_expenses=metrics.get("total_expenses"), assets=metrics.get("assets"), liabilities=metrics.get("liabilities"), net_assets=metrics.get("net_assets"), income_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "income"], expense_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "expense"], balance_sheet_breakdown=[x for x in items if x.source_statement == "financial_position"], source_ordered_line_items=items, statements=statements, functional_expense_allocations=_functional_expense_allocations(extract, evidence_id, metrics.get("total_expenses"), period.get("label")))
         card.financial_records = [x for x in card.financial_records if x.financial_record_id != financial_id] + [financial]
         for item in items:
             label = item.label.casefold()
@@ -386,7 +428,7 @@ def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], no
         if not matching:
             continue
         target = matching[-1]
-        allocations = _functional_expense_allocations(extract, evidence_id, target.total_expenses)
+        allocations = _functional_expense_allocations(extract, evidence_id, target.total_expenses, target.period.label)
         if allocations:
             target.functional_expense_allocations = [*target.functional_expense_allocations, *allocations]
             for source_record in card.source_native_records:
@@ -406,9 +448,11 @@ def project_phase2d(input_dir: Path, output_dir: Path, dataset_version: str, *, 
     for path in (archive_root / "processed" / "phase2b" / "2026-08-14" / "report-extracts").glob("*.json"):
         if path.name == "manifest.json": continue
         item = json.loads(path.read_text(encoding="utf-8")); reports_by_abn.setdefault(item["abn"], []).append(item)
+    accepted_summaries = _accepted_rc2_summaries(input_dir)
     cards = []
     for row in raw["entities"]:
         card = CauseBaseCard.model_validate(row); abn = _abn(card)
+        _inherit_accepted_summary(card, accepted_summaries.get(card.causebase_id), now)
         card.dataset_version, card.card_schema_version, card.editorial_policy_version, card.generator_version, card.built_at = dataset_version, "0.4", EDITORIAL_POLICY_VERSION, GENERATOR_VERSION, now
         card.canonical_url = f"{VIEWER_ROOT}#{card.causebase_id}"
         card.activities, card.activity_observations = _separate_legacy_provenance(card.activities)

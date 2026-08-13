@@ -200,9 +200,14 @@ class FunctionalExpenseAllocation(BaseModel):
 
     source_label: str
     share: Decimal = Field(ge=0, le=1)
+    denominator_label: str = "Total expenses"
+    denominator_amount: MoneyObservation | None = None
+    reporting_period_label: str | None = None
     allocation_basis: Literal["total_expenses", "other", "unknown"] = "unknown"
     direct_observation: bool = True
     derived_amount: MoneyObservation | None = None
+    derived_amount_method: Literal["rounded_percentage_x_reported_total"] | None = None
+    derived_amount_approximate: bool = False
     derivation_note: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     page: int | None = None
