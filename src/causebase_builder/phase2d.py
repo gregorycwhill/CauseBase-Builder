@@ -12,7 +12,7 @@ from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from .models import CauseBaseCard, ComparativePeriodAmount, CoverageObservation, DerivativeAssessment, DerivedRevenueShare, EvidenceRef, FinancialLineItem, Financials, FinancialStatementObservation, FinancialStatementRow, FunctionalExpenseAllocation, FundraisingMethodObservation, FundingSourceObservation, MoneyObservation, ParticipationObservation, ProgramObservation, SourceNativeRecord, StructuredValueObservation, SynthesisMetadata, TaxStatus
+from .models import CauseBaseCard, ComparativePeriodAmount, CoverageObservation, DerivativeAssessment, DerivedRevenueShare, EvidenceRef, FinancialLineItem, Financials, FinancialStatementObservation, FinancialStatementRow, FunctionalExpenseAllocation, FundraisingMethodObservation, FundingSourceObservation, MoneyObservation, ParticipationObservation, ProgramObservation, RevenueShareComponent, SourceNativeRecord, StructuredValueObservation, SynthesisMetadata, TaxStatus
 from .render import file_sha256, render_publication
 
 GENERATOR_VERSION = "0.5.0-rc4"
@@ -257,7 +257,7 @@ def _statements(rows: list[dict], evidence_id: str, period: dict) -> list[Financ
             label, lower = row["label"], row["label"].casefold()
             row_type = "heading" if not row.get("current") else "total" if lower.startswith("total ") else "subtotal" if label.isupper() or label.endswith(":") else "line_item"
             mappings = [target for needle, target, _ in KEYS if needle in lower] or ([row["section_hint"]] if row.get("unlabelled_numeric_row") and row.get("section_hint") else [])
-            statement_rows.append(FinancialStatementRow(source_label=label, source_order=index, row_type=row_type, hierarchy_indent=row["indent"], current_amount=_money(row["current"]) if row.get("current") else None, comparative_periods=[ComparativePeriodAmount(amount=_money(row["comparative"]))] if row.get("comparative") else [], page=row["page"], source_location=row["source_location"], extraction_method="native_text_and_tables", extraction_confidence="high" if row.get("current") else "medium", extraction_warnings=[], evidence_ids=[evidence_id], canonical_metrics=mappings))
+            statement_rows.append(FinancialStatementRow(observation_id=f"obs:{evidence_id}:{statement_type}:{index}", source_label=label, source_order=index, row_type=row_type, hierarchy_indent=row["indent"], current_amount=_money(row["current"]) if row.get("current") else None, comparative_periods=[ComparativePeriodAmount(amount=_money(row["comparative"]))] if row.get("comparative") else [], page=row["page"], source_location=row["source_location"], extraction_method="native_text_and_tables", extraction_confidence="high" if row.get("current") else "medium", extraction_warnings=[], evidence_ids=[evidence_id], canonical_metrics=mappings))
         result.append(FinancialStatementObservation(statement_type=statement_type, statement_title=title, source_document_evidence_id=evidence_id, reporting_scope="subject", period=period, rows=statement_rows))
     return result
 
@@ -346,34 +346,19 @@ def _functional_expense_allocations(extract: dict, evidence_id: str, total_expen
     return allocations
 
 
-def _funding_source_type(label: str) -> str:
-    """Classify only broad source families; the printed label remains primary."""
-    lowered = label.casefold()
-    if "donation" in lowered and "fundrais" in lowered:
-        return "other"  # Explicitly mixed: never present it as donations alone.
-    if "grant" in lowered or "vla" in lowered or "government" in lowered:
-        return "government_grants_or_contracts"
-    if "fee" in lowered or "reimbursement" in lowered:
-        return "service_or_earned_income"
-    if "interest" in lowered or "investment" in lowered or "fund income" in lowered:
-        return "investment_income"
-    if "bequest" in lowered:
-        return "bequests"
-    if "donation" in lowered:
-        return "individual_donations"
-    return "other"
+def _donations_gifts_bequests(financial: Financials) -> DerivedRevenueShare | None:
+    """Project identified giving revenue without turning Funding into a P&L.
 
-
-def _revenue_shares(financial: Financials) -> list[DerivedRevenueShare]:
-    """Project source-labelled revenue rows over a reported total income.
-
-    Only rows physically located between a Revenue/Income heading and the next
-    Expenses/Expenditure heading are eligible. This avoids category-name
-    heuristics and prevents double-counting a subtotal as a funding source.
+    This source-deferential grouping includes an entire printed row when its
+    label materially identifies donations, gifts, bequests or fundraising. It
+    deliberately does not split a mixed row such as "Donations, Fundraisings,
+    Lectures" or estimate an earned-income component.
     """
     if not financial.revenue or financial.revenue.normalised_amount <= 0:
-        return []
-    result: list[DerivedRevenueShare] = []
+        return None
+    components: list[RevenueShareComponent] = []
+    evidence_ids: list[str] = []
+    denominator_id = None
     for statement in financial.statements:
         if statement.statement_type != "profit_and_loss":
             continue
@@ -385,24 +370,29 @@ def _revenue_shares(financial: Financials) -> list[DerivedRevenueShare]:
                 continue
             if in_revenue and row.row_type == "heading" and lowered in {"expenses", "expenditure"}:
                 break
+            if "revenue" in row.canonical_metrics and row.current_amount:
+                denominator_id = row.observation_id
+                continue
             if not in_revenue or row.row_type != "line_item" or not row.current_amount:
                 continue
-            if "revenue" in row.canonical_metrics or lowered == "note" or re.fullmatch(r"[\d, ()$-]+", row.source_label):
+            if lowered == "note" or re.fullmatch(r"[\d, ()$-]+", row.source_label):
                 continue
             amount = row.current_amount
-            if amount.normalised_amount <= 0:
+            if amount.normalised_amount <= 0 or not any(token in lowered for token in ("donation", "gift", "bequest", "fundrais")):
                 continue
-            result.append(DerivedRevenueShare(
-                source_label=row.source_label,
-                numerator_observation_labels=[row.source_label], numerator_amount=amount,
-                denominator_label="Total income", denominator_amount=financial.revenue,
-                formula="reported_revenue_line_divided_by_reported_total_income",
-                reporting_period_label=financial.period.label, reporting_scope=financial.reporting_scope,
-                result=(amount.normalised_amount / financial.revenue.normalised_amount),
-                rounding_note="Share is calculated from the displayed source row divided by the report's total income; mixed source labels are not narrowed.",
-                evidence_ids=row.evidence_ids,
-            ))
-    return result
+            components.append(RevenueShareComponent(observation_id=row.observation_id, source_label=row.source_label, amount=amount))
+            evidence_ids.extend(row.evidence_ids)
+    if not components or not denominator_id:
+        return None
+    numerator = sum((component.amount.normalised_amount for component in components), Decimal("0"))
+    return DerivedRevenueShare(
+        canonical_label="Donations, gifts & bequests", components=components,
+        component_observation_ids=[component.observation_id for component in components], numerator_amount=MoneyObservation(source_amount=numerator, normalised_amount=numerator, source_raw_value=" + ".join(component.source_label for component in components)),
+        denominator_label="Total income", denominator_observation_id=denominator_id, denominator_amount=financial.revenue,
+        formula="reported_revenue_line_divided_by_reported_total_income", reporting_period_label=financial.period.label,
+        reporting_scope=financial.reporting_scope, result=numerator / financial.revenue.normalised_amount,
+        rounding_note="Includes each full source row explicitly labelled donations, gifts, bequests or fundraising; no mixed row is split or narrowed.", evidence_ids=list(dict.fromkeys(evidence_ids)),
+    )
 
 
 def _merge_programs(programs: list[ProgramObservation]) -> list[ProgramObservation]:
@@ -533,14 +523,15 @@ def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], no
         items = [FinancialLineItem(label=row["label"], category=_category(row["label"]), amount=_money(row["current"]), comparative_amount=_money(row["comparative"]), evidence_ids=[evidence_id], note=f"PDF page {row['page']}; printed page {row.get('printed_page') or 'not detected'}", source_statement="income_statement" if row["statement"] == "profit_and_loss" else "financial_position" if row["statement"] == "financial_position" else "other", source_order=index, canonical_metrics=[target for needle, target, _ in KEYS if needle in row["label"].casefold()] or ([row["section_hint"]] if row.get("unlabelled_numeric_row") and row.get("section_hint") else [])) for index, row in enumerate(rows) if row.get("current")]
         financial_id = f"fr:report:{abn}:{extract['source_sha256'][:16]}"
         financial = Financials(financial_record_id=financial_id, period=period, reporting_scope="subject", reporting_subject_causebase_id=card.causebase_id, covered_subjects=[card.causebase_id], consolidated="unknown", attribution_method="direct_subject_report", evidence_ids=[evidence_id], revenue=metrics.get("revenue"), employee_costs=metrics.get("employee_costs"), total_expenses=metrics.get("total_expenses"), assets=metrics.get("assets"), liabilities=metrics.get("liabilities"), net_assets=metrics.get("net_assets"), income_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "income"], expense_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "expense"], balance_sheet_breakdown=[x for x in items if x.source_statement == "financial_position"], source_ordered_line_items=items, statements=statements, functional_expense_allocations=_functional_expense_allocations(extract, evidence_id, metrics.get("total_expenses"), period.get("label")))
-        financial.revenue_shares = _revenue_shares(financial)
+        financial.donations_gifts_bequests = _donations_gifts_bequests(financial)
         card.financial_records = [x for x in card.financial_records if x.financial_record_id != financial_id] + [financial]
         card.funding_sources = [item for item in card.funding_sources if item.evidence_ids != [evidence_id]]
-        for share in financial.revenue_shares:
+        if financial.donations_gifts_bequests:
+            projection = financial.donations_gifts_bequests
             card.funding_sources.append(FundingSourceObservation(
-                source_type=_funding_source_type(share.source_label), period_label=share.reporting_period_label,
-                source_label=share.source_label, amount=share.numerator_amount, share=share.result,
-                reporting_scope=share.reporting_scope, method="deterministic_derivation", evidence_ids=share.evidence_ids,
+                source_type="other", period_label=projection.reporting_period_label,
+                source_label=projection.canonical_label, amount=projection.numerator_amount, share=projection.result,
+                reporting_scope=projection.reporting_scope, method="deterministic_derivation", evidence_ids=projection.evidence_ids,
             ))
     # A chart may be printed in an annual report while the independent total is
     # in its companion financial report.  Reconcile by shared reporting period,

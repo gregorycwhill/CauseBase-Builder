@@ -259,7 +259,7 @@ class Financials(BaseModel):
     # rule for the underlying report observations.
     source_ordered_line_items: list["FinancialLineItem"] = Field(default_factory=list)
     statements: list["FinancialStatementObservation"] = Field(default_factory=list)
-    revenue_shares: list["DerivedRevenueShare"] = Field(default_factory=list)
+    donations_gifts_bequests: "DerivedRevenueShare | None" = None
     functional_expense_allocations: list[FunctionalExpenseAllocation] = Field(default_factory=list)
 
 
@@ -278,17 +278,19 @@ class FinancialLineItem(BaseModel):
 
 
 class DerivedRevenueShare(BaseModel):
-    """A conservative analytic projection over retained report observations.
+    """A conservative analytic grouping over retained report observations.
 
     The printed revenue row remains the primary observation.  This records the
     numerator, denominator and formula needed to show a share without narrowing
     a mixed source label or treating the result as another source fact.
     """
 
-    source_label: str
-    numerator_observation_labels: list[str] = Field(default_factory=list)
+    canonical_label: Literal["Donations, gifts & bequests"]
+    components: list["RevenueShareComponent"] = Field(min_length=1)
+    component_observation_ids: list[str] = Field(min_length=1)
     numerator_amount: MoneyObservation
     denominator_label: str
+    denominator_observation_id: str
     denominator_amount: MoneyObservation
     formula: Literal["reported_revenue_line_divided_by_reported_total_income"]
     reporting_period_label: str | None = None
@@ -296,6 +298,14 @@ class DerivedRevenueShare(BaseModel):
     result: Decimal = Field(ge=0, le=1)
     rounding_note: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
+
+
+class RevenueShareComponent(BaseModel):
+    """One source-preserved revenue row included in an analytic grouping."""
+
+    observation_id: str
+    source_label: str
+    amount: MoneyObservation
 
 
 FinancialMetricName = Literal[
@@ -330,6 +340,7 @@ class ComparativePeriodAmount(BaseModel):
 class FinancialStatementRow(BaseModel):
     """A printed statement row retained before optional canonical projection."""
 
+    observation_id: str
     source_label: str
     source_order: int = Field(ge=0)
     row_type: Literal["heading", "line_item", "subtotal", "total"]

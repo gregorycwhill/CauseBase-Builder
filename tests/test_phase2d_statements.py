@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from causebase_builder.models import Financials
-from causebase_builder.phase2d import _report_rows, _revenue_shares, _separate_legacy_provenance, _statements
+from causebase_builder.phase2d import _donations_gifts_bequests, _report_rows, _separate_legacy_provenance, _statements
 
 
 def test_primary_statement_rows_survive_in_source_order_before_canonical_projection():
@@ -51,11 +51,14 @@ def test_reviewed_structured_value_remediation_can_omit_a_misfiled_value():
     assert values == ["Advocacy and policy activities"]
 
 
-def test_revenue_share_retains_mixed_source_label_and_full_derivation_contract():
+def test_donations_gifts_bequests_includes_explicit_full_rows_only_and_retains_derivation_contract():
     extract = {"pages": [{"page": 8, "text": """Statement of profit or loss
 For the year ended 30 June 2025
 Revenue
 Donations, Fundraisings, Lectures 2,051,817 1,838,542
+Donations - Future Fund 50,000 0
+Fees for Service 51,771 40,000
+Interest Received 79,883 20,000
 5,016,000 5,339,242
 Expenses
 (5,852,789) (5,650,862)
@@ -64,9 +67,12 @@ Expenses
     statements = _statements(rows, "ev:report:test", {"label": "year ended 2025-06-30"})
     total = next(row.current_amount for row in statements[0].rows if "revenue" in row.canonical_metrics and row.current_amount)
     financial = Financials(financial_record_id="fr:test", period={"label": "year ended 2025-06-30"}, reporting_scope="subject", revenue=total, statements=statements)
-    shares = _revenue_shares(financial)
-    assert len(shares) == 1
-    assert shares[0].source_label == "Donations, Fundraisings, Lectures"
-    assert shares[0].result == Decimal("2051817") / Decimal("5016000")
-    assert shares[0].formula == "reported_revenue_line_divided_by_reported_total_income"
-    assert shares[0].numerator_observation_labels == ["Donations, Fundraisings, Lectures"]
+    projection = _donations_gifts_bequests(financial)
+    assert projection.canonical_label == "Donations, gifts & bequests"
+    assert [item.source_label for item in projection.components] == ["Donations, Fundraisings, Lectures", "Donations - Future Fund"]
+    assert projection.numerator_amount.normalised_amount == Decimal("2101817")
+    assert projection.result == Decimal("2101817") / Decimal("5016000")
+    assert projection.formula == "reported_revenue_line_divided_by_reported_total_income"
+    assert len(projection.component_observation_ids) == 2
+    assert projection.denominator_observation_id
+    assert projection.reporting_scope == "subject"
