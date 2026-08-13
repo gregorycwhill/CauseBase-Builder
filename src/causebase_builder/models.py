@@ -225,9 +225,15 @@ class Financials(BaseModel):
     total_expenses: MoneyObservation | None = None
     assets: MoneyObservation | None = None
     liabilities: MoneyObservation | None = None
+    net_assets: MoneyObservation | None = None
     income_breakdown: list["FinancialLineItem"] = Field(default_factory=list)
     expense_breakdown: list["FinancialLineItem"] = Field(default_factory=list)
     balance_sheet_breakdown: list["FinancialLineItem"] = Field(default_factory=list)
+    # Primary statements are retained as source-ordered rows.  The three
+    # convenience breakdowns above are display projections, not a filtering
+    # rule for the underlying report observations.
+    source_ordered_line_items: list["FinancialLineItem"] = Field(default_factory=list)
+    statements: list["FinancialStatementObservation"] = Field(default_factory=list)
 
 
 class FinancialLineItem(BaseModel):
@@ -238,11 +244,15 @@ class FinancialLineItem(BaseModel):
     amount: MoneyObservation
     evidence_ids: list[str] = Field(default_factory=list)
     note: str | None = None
+    comparative_amount: MoneyObservation | None = None
+    source_statement: Literal["income_statement", "financial_position", "other"] = "other"
+    source_order: int | None = Field(default=None, ge=0)
+    canonical_metrics: list[FinancialMetricName] = Field(default_factory=list)
 
 
 FinancialMetricName = Literal[
     "revenue", "donations", "government_grants", "employee_costs",
-    "total_expenses", "assets", "liabilities",
+    "total_expenses", "assets", "liabilities", "net_assets",
 ]
 ReconciliationStatus = Literal[
     "single_observation", "agreeing", "precision_consistent", "divergent",
@@ -262,6 +272,44 @@ class FinancialMetricSet(BaseModel):
     observations: list[FinancialMetricObservation] = Field(min_length=1)
     reconciliation_status: ReconciliationStatus
     reconciliation_notes: str | None = None
+
+
+class ComparativePeriodAmount(BaseModel):
+    label: str | None = None
+    amount: MoneyObservation | None = None
+
+
+class FinancialStatementRow(BaseModel):
+    """A printed statement row retained before optional canonical projection."""
+
+    source_label: str
+    source_order: int = Field(ge=0)
+    row_type: Literal["heading", "line_item", "subtotal", "total"]
+    hierarchy_indent: int | None = Field(default=None, ge=0)
+    current_period_label: str | None = None
+    current_amount: MoneyObservation | None = None
+    comparative_periods: list[ComparativePeriodAmount] = Field(default_factory=list)
+    page: int | None = None
+    source_location: str | None = None
+    extraction_method: str
+    extraction_confidence: Literal["high", "medium", "low"] = "medium"
+    extraction_warnings: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    canonical_metrics: list[FinancialMetricName] = Field(default_factory=list)
+
+
+class FinancialStatementObservation(BaseModel):
+    """A source-faithful financial statement, separate from headline metrics."""
+
+    statement_type: Literal["profit_and_loss", "financial_position", "cash_flow", "changes_in_equity"]
+    statement_title: str
+    source_document_evidence_id: str
+    reporting_scope: Literal["subject", "organisation_group", "consolidated_group", "unknown"] = "unknown"
+    period: FinancialPeriod
+    currency: str = "AUD"
+    source_unit_scale: Decimal = Decimal("1")
+    source_unit_label: str | None = None
+    rows: list[FinancialStatementRow] = Field(default_factory=list)
 
 
 class Classification(BaseModel):
@@ -362,6 +410,15 @@ class ParticipationObservation(BaseModel):
     source_url: str | None = None
     status: Literal["current", "historical", "stale", "unknown"] = "unknown"
     observed_at: date | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class StructuredValueObservation(BaseModel):
+    """A display/navigation value with provenance separate from its wording."""
+
+    value: str
+    source_role: Literal["source_native", "organisation_self_description", "legacy_source_qualifier", "unknown"] = "unknown"
+    provenance_note: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
 
 
@@ -474,6 +531,7 @@ class CauseBaseCard(BaseModel):
 
     website: str | None = None
     geography: list[str] = Field(default_factory=list)
+    geography_observations: list[StructuredValueObservation] = Field(default_factory=list)
     navigation_geography: list[NavigationGeography] = Field(default_factory=list)
 
     causebase_summary: str
@@ -481,7 +539,9 @@ class CauseBaseCard(BaseModel):
     organisation_self_description: str | None = None
 
     activities: list[str] = Field(default_factory=list)
+    activity_observations: list[StructuredValueObservation] = Field(default_factory=list)
     beneficiaries: list[str] = Field(default_factory=list)
+    beneficiary_observations: list[StructuredValueObservation] = Field(default_factory=list)
     participation_modes: list[str] = Field(default_factory=list)
     participation_observations: list[ParticipationObservation] = Field(default_factory=list)
     opportunities: list[Opportunity] = Field(default_factory=list)

@@ -85,10 +85,10 @@ def project_phase2c_release(args: argparse.Namespace) -> int:
     errors = validate_publication(output)
     mark_manifest_validated(output, errors)
     if errors:
-        print("PHASE 2C PROJECTION FAILED VALIDATION")
+        print("PHASE 2B RC4 PROJECTION FAILED VALIDATION")
         for error in errors: print(f"- {error}")
         return 2
-    print(f"Built Phase 2B RC3 candidate {args.dataset_version}: {output.resolve()}")
+    print(f"Built Phase 2B RC4 candidate {args.dataset_version}: {output.resolve()}")
     return 0
 
 
@@ -291,7 +291,7 @@ def make_parser() -> argparse.ArgumentParser:
     phase2b.add_argument("--cache-root", required=True, help="Private content-addressed synthesis cache")
     phase2b.add_argument("--model", default="gpt-5-mini")
     phase2b.set_defaults(func=project_phase2b_release)
-    phase2c = sub.add_parser("project-phase2c", help="Create RC3 information-completeness projection without summary synthesis")
+    phase2c = sub.add_parser("project-phase2c", help="Create RC4 evidence-driven projection without summary synthesis")
     phase2c.add_argument("--input", required=True); phase2c.add_argument("--output", required=True); phase2c.add_argument("--dataset-version", required=True); phase2c.add_argument("--archive-root", required=True); phase2c.add_argument("--embedding-cache-root")
     phase2c.set_defaults(func=project_phase2c_release)
 

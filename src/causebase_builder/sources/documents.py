@@ -82,11 +82,18 @@ def extract_pdf_evidence(
                 [[cell or "" for cell in row] for row in table]
                 for table in page.extract_tables()
             ]
+            text = page.extract_text() or ""
             pages.append(
                 {
                     "page": number,
-                    "text": page.extract_text() or "",
+                    "text": text,
                     "tables": tables,
+                    "native_text_characters": len(text.strip()),
+                    "table_count": len(tables),
+                    "extraction_method": "native_text_and_tables",
+                    # OCR is page-scoped and only considered when this flag is
+                    # true; no whole-document image conversion is permitted.
+                    "needs_ocr_review": len(text.strip()) < 40,
                 }
             )
     return {
@@ -94,5 +101,10 @@ def extract_pdf_evidence(
         "page_count": source_page_count,
         "extracted_page_count": len(pages),
         "truncated": max_pages is not None and source_page_count >= start_page + max_pages,
+        "extraction_diagnostics": {
+            "native_text_pages": sum(1 for page in pages if page["native_text_characters"] >= 40),
+            "low_text_pages": [page["page"] for page in pages if page["needs_ocr_review"]],
+            "ocr_attempted_pages": [],
+        },
         "pages": pages,
     }

@@ -33,7 +33,19 @@ def acquire(abn: str) -> dict:
     entity = fetch_json(f"{BASE}/entity/{uuid}")
     if entity.get("data", {}).get("Abn") != abn:
         raise RuntimeError(f"ACNC entity ABN mismatch for {abn}")
-    return entity
+    submitted = [
+        item for item in entity.get("data", {}).get("AnnualReports", [])
+        if item.get("IsAIS") and item.get("Status") == "Submitted" and item.get("AISId")
+    ]
+    latest = max(submitted, key=lambda item: (int(item.get("Year") or 0), item.get("DateReceived") or ""), default=None)
+    ais_detail = None
+    failure = None
+    if latest:
+        try:
+            ais_detail = fetch_json(f"{BASE}/entity/{latest['AISId']}")
+        except Exception as error:  # coverage-safe: retain locator and explicit failure
+            failure = f"{type(error).__name__}: {error}"
+    return {"profile": entity, "latest_submitted_ais": latest, "ais_detail": ais_detail, "ais_acquisition_failure": failure}
 
 
 def main() -> int:

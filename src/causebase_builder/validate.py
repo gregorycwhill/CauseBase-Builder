@@ -143,6 +143,17 @@ def validate_publication(output_dir: Path) -> list[str]:
             )
         for card in cards:
             errors.extend(validate_card(card))
+            coverage = {item.capability: item for item in card.coverage}
+            report_records = [item for item in card.source_native_records if item.source_family == "organisation-report-extract"]
+            report_evidence = {evidence_id for item in report_records for evidence_id in item.evidence_ids}
+            annual_evidence = {item.evidence_id for item in card.evidence if item.evidence_id in report_evidence and "annual" in item.title.casefold()}
+            financial_evidence = {item.evidence_id for item in card.evidence if item.evidence_id in report_evidence and "financial" in item.title.casefold()}
+            if annual_evidence and coverage.get("annual_report", None) and coverage["annual_report"].status == "not_yet_processed":
+                errors.append(f"{card.causebase_id}: annual-report coverage contradicts processed report evidence")
+            if financial_evidence and coverage.get("financials", None) and coverage["financials"].status == "not_yet_processed":
+                errors.append(f"{card.causebase_id}: financial coverage contradicts processed report evidence")
+            if card.website and coverage.get("website", None) and coverage["website"].status == "not_yet_processed":
+                errors.append(f"{card.causebase_id}: website coverage contradicts acquired website locator")
 
         csv_path = output_dir / "causebase.csv"
         if csv_path.exists():
