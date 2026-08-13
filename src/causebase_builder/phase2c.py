@@ -81,8 +81,15 @@ def _latest_public_acnc(card: CauseBaseCard, entity: dict, now: datetime) -> Non
     uuid, data = entity["uuid"], entity["data"]
     profile_url = f"https://www.acnc.gov.au/charity/charities/{uuid}/profile"
     card.acnc_profile_url = profile_url
+    card.operating_names = [item["Name"] if isinstance(item, dict) else str(item) for item in (data.get("OtherNames") or []) if (item.get("Name") if isinstance(item, dict) else item)]
+    card.principal_location = ", ".join(part for part in (data.get("AddressStateOrProvince"), "Australia") if part)
+    # Multiple historical card identities can legitimately resolve to the same
+    # current ABN. Keep each card's source-native sidecar addressable.
+    record_id = f"src:acnc-public-profile:{abn}:{card.causebase_id}:2026-08-13"
+    card.source_native_records = [item for item in card.source_native_records if item.source_record_id != record_id]
     submitted = [item for item in data.get("AnnualReports", []) if item.get("IsAIS") and item.get("Status") == "Submitted" and item.get("AISId")]
     if not submitted:
+        card.source_native_records.append(SourceNativeRecord(source_record_id=record_id, source_family="acnc-public-profile", dataset_version="2026-08-13-public-api", source_url=profile_url, retrieved_at=now, observed_at="2026-08-13", source_fields={"uuid": uuid, "abn": abn, "latest_ais_year": None, "latest_ais_uuid": None}, source_payload=entity, canonical_field_mappings={"data.Name": "display_name", "data.OtherNames": "operating_names", "data.AnnualReports": "acnc_ais_url", "data.Programs": "programs"}))
         _replace_coverage(card, CoverageObservation(capability="latest_acnc_ais", status="not_available_from_source", observed_at="2026-08-13", freshness_note="No submitted AIS appears in the 2026-08-13 public ACNC profile acquisition."))
         return
     latest = max(submitted, key=lambda item: (int(item.get("Year") or 0), item.get("DateReceived") or ""))
@@ -91,13 +98,13 @@ def _latest_public_acnc(card: CauseBaseCard, entity: dict, now: datetime) -> Non
     evidence_id = f"ev:acnc:ais:{abn}:{year}"
     _evidence(card, EvidenceRef(evidence_id=evidence_id, source_type="regulatory", title=f"{data.get('Name', card.display_name)} Annual Information Statement {year}", publisher="Australian Charities and Not-for-profits Commission", url=ais_url, observed_at=(latest.get("DateReceived") or "")[:10] or None))
     card.acnc_profile_url, card.acnc_ais_url = profile_url, ais_url
-    card.operating_names = [item["Name"] if isinstance(item, dict) else str(item) for item in (data.get("OtherNames") or []) if (item.get("Name") if isinstance(item, dict) else item)]
-    card.principal_location = ", ".join(part for part in (data.get("AddressStateOrProvince"), "Australia") if part)
-    # Multiple historical card identities can legitimately resolve to the same
-    # current ABN. Keep each card's source-native sidecar addressable.
-    record_id = f"src:acnc-public-profile:{abn}:{card.causebase_id}:2026-08-13"
-    card.source_native_records = [item for item in card.source_native_records if item.source_record_id != record_id]
     card.source_native_records.append(SourceNativeRecord(source_record_id=record_id, source_family="acnc-public-profile", dataset_version="2026-08-13-public-api", source_url=profile_url, retrieved_at=now, observed_at=(latest.get("DateReceived") or "")[:10], source_fields={"uuid": uuid, "abn": abn, "latest_ais_year": year, "latest_ais_uuid": ais_uuid}, source_payload=entity, canonical_field_mappings={"data.Name": "display_name", "data.OtherNames": "operating_names", "data.AnnualReports": "acnc_ais_url", "data.Programs": "programs"}, evidence_ids=[evidence_id]))
+    card.programs = [ProgramObservation(
+        program_id=f"prg:acnc:{abn}:{item.get('uuid', index)}", name=item.get("Name") or "Unnamed ACNC program",
+        description=item.get("ProgramClassification"), beneficiaries=list(item.get("ProgramBeneficiaries") or []),
+        geography=[location.get("DisplayName") or location.get("Name") for location in item.get("ProgramLocations", []) if location.get("DisplayName") or location.get("Name")],
+        status="current", reporting_period=year, source_url=item.get("ProgramWeblink") or ais_url, evidence_ids=[evidence_id],
+    ) for index, item in enumerate(data.get("Programs") or [])]
     _replace_coverage(card, CoverageObservation(capability="latest_acnc_ais", status="observed", evidence_ids=[evidence_id], observed_at=(latest.get("DateReceived") or "")[:10], freshness_note=f"Latest submitted ACNC AIS in the 2026-08-13 public-profile acquisition: {year}."))
 
 
