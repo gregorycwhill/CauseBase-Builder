@@ -15,11 +15,27 @@ def main() -> int:
     report_cards = [card for card in cards if any(record["source_family"] == "organisation-report-extract" for record in card["source_native_records"])]
     ais = [record for card in cards for record in card["source_native_records"] if record["source_family"] == "acnc-ais-detail"]
     latest_ais_coverage = [next((item for item in card["coverage"] if item["capability"] == "latest_acnc_ais"), None) for card in cards]
+    ais_date_conflicts = [
+        record["source_record_id"] for record in ais
+        if record.get("source_fields", {}).get("date_received") and str(record.get("observed_at", ""))[:10] != str(record["source_fields"]["date_received"])[:10]
+    ]
+    program_duplicates = [
+        card["causebase_id"] for card in cards
+        if len([(item.get("name", "").casefold(), item.get("reporting_period")) for item in card.get("programs", [])]) != len(set((item.get("name", "").casefold(), item.get("reporting_period")) for item in card.get("programs", [])))
+    ]
+    visual_escalations = [
+        escalation for card in cards for record in card["source_native_records"]
+        if record["source_family"] == "organisation-report-extract"
+        for escalation in record.get("source_payload", {}).get("diagnostics", {}).get("vision_escalations", [])
+    ]
     audit = {
         "card_count": len(cards),
         "ais_detail": {"attempted": len(ais), "payload_acquired": sum(bool(record.get("source_payload")) for record in ais), "explicit_failure": sum(not bool(record.get("source_payload")) for record in ais), "no_submitted_ais": sum(item is not None and item["status"] == "not_available_from_source" for item in latest_ais_coverage), "coverage_observations": len([item for item in latest_ais_coverage if item])},
         "reports": {"source_native_extract_records": sum(1 for card in cards for record in card["source_native_records"] if record["source_family"] == "organisation-report-extract"), "cards": [{"causebase_id": card["causebase_id"], "abn": next((item["value"] for item in card["external_identifiers"] if item["scheme"].lower() == "abn"), None), "reports": [record["source_fields"]["filename"] for record in card["source_native_records"] if record["source_family"] == "organisation-report-extract"]} for card in report_cards]},
         "coverage_conflicts": [card["causebase_id"] for card in cards if any(record["source_family"] == "organisation-report-extract" for record in card["source_native_records"]) and any(item["capability"] in {"annual_report", "financials"} and item["status"] == "not_yet_processed" for item in card["coverage"])],
+        "ais_date_conflicts": ais_date_conflicts,
+        "program_merge_duplicates": program_duplicates,
+        "visual_escalations": visual_escalations,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(audit, indent=2) + "\n", encoding="utf-8")

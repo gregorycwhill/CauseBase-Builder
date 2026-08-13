@@ -8,10 +8,11 @@ from __future__ import annotations
 import csv
 import json
 import re
+from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from .models import CauseBaseCard, ComparativePeriodAmount, CoverageObservation, EvidenceRef, FinancialLineItem, Financials, FinancialStatementObservation, FinancialStatementRow, FundraisingMethodObservation, FundingSourceObservation, MoneyObservation, ParticipationObservation, ProgramObservation, SourceNativeRecord, StructuredValueObservation, TaxStatus
+from .models import CauseBaseCard, ComparativePeriodAmount, CoverageObservation, EvidenceRef, FinancialLineItem, Financials, FinancialStatementObservation, FinancialStatementRow, FunctionalExpenseAllocation, FundraisingMethodObservation, FundingSourceObservation, MoneyObservation, ParticipationObservation, ProgramObservation, SourceNativeRecord, StructuredValueObservation, TaxStatus
 from .render import file_sha256, render_publication
 
 GENERATOR_VERSION = "0.5.0-rc4"
@@ -219,14 +220,99 @@ def _report_period(extract: dict) -> dict:
     text = "\n".join(page.get("text", "") for page in extract.get("pages", []))
     match = re.search(r"(?:for the year ended|year ended)\s+(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})", text, re.I)
     if not match:
+        # Australian report filenames commonly carry an unambiguous financial
+        # year even where an annual-report spread does not print the formal
+        # statement heading.  This supports cross-report reconciliation while
+        # retaining an explicit filename-derived provenance label.
+        filename_match = re.search(r"(20\d{2})[-_](\d{2})(?!\d)", extract.get("filename", ""))
+        if filename_match:
+            start_year, end_year = int(filename_match.group(1)), int("20" + filename_match.group(2))
+            if end_year == start_year + 1:
+                return {"period_start": date(start_year, 7, 1), "period_end": date(end_year, 6, 30), "period_length_days": 365, "label": f"filename-derived financial year {start_year}-{str(end_year)[-2:]}"}
         return {"label": "Report period not reliably parsed"}
     day, month, year = match.groups()
     end = datetime.strptime(f"{day} {month} {year}", "%d %B %Y").date()
     return {"period_start": end - timedelta(days=364), "period_end": end, "period_length_days": 365, "label": f"year ended {end.isoformat()}"}
 
 
+def _functional_expense_allocations(extract: dict, evidence_id: str, total_expenses: MoneyObservation | None) -> list[FunctionalExpenseAllocation]:
+    """Validate narrow visual chart output against independently extracted facts.
+
+    The visual adapter supplies generic `functional_expense_allocation`
+    observations.  This projection neither knows nor selects organisations or
+    category names; it accepts only a complete percentage allocation that sums
+    to approximately 100% and reconciles to a separately extracted total.
+    """
+    observations = [
+        {**item, "page": item.get("page", page.get("page")), "extraction_method": item.get("extraction_method", "narrow_vision_structured")}
+        for page in extract.get("pages", []) for item in page.get("visual_observations", [])
+        if item.get("kind") == "functional_expense_allocation"
+    ]
+    if not observations or total_expenses is None:
+        return []
+    try:
+        shares = [Decimal(str(item["share_percent"])) / Decimal("100") for item in observations]
+    except (KeyError, ArithmeticError, ValueError):
+        return []
+    if not all(Decimal("0") < share <= Decimal("1") for share in shares) or not Decimal("0.99") <= sum(shares) <= Decimal("1.01"):
+        return []
+    allocations = []
+    for item, share in zip(observations, shares):
+        label = str(item.get("source_label", "")).strip()
+        if not label:
+            return []
+        # A chart share is direct; this rounded dollar amount is explicitly a
+        # deterministic convenience projection over the independently reported
+        # expense total, never an additional financial-statement observation.
+        amount = abs(total_expenses.normalised_amount) * share
+        rounded = amount.quantize(Decimal("1"))
+        allocations.append(FunctionalExpenseAllocation(
+            source_label=label, share=share, allocation_basis="total_expenses",
+            derived_amount=MoneyObservation(source_amount=rounded, normalised_amount=rounded, source_raw_value=f"derived from {item['share_percent']}% × reported total expenses"),
+            derivation_note="Mechanically derived rounded estimate from reported share and independently extracted total expenses.",
+            evidence_ids=[evidence_id], page=item.get("page"), extraction_method=item.get("extraction_method", "narrow_vision_structured"), extraction_confidence=item.get("extraction_confidence", "medium"),
+        ))
+    for page in extract.get("pages", []):
+        escalation = page.get("vision_escalation")
+        if escalation and page.get("visual_observations"):
+            escalation["validation_outcome"] = "passed_share_sum_and_total_expenses_cross_check"
+    return allocations
+
+
+def _merge_programs(programs: list[ProgramObservation]) -> list[ProgramObservation]:
+    """Merge same-period program observations without discarding source detail."""
+    merged: dict[tuple[str, str | None], ProgramObservation] = {}
+    for program in programs:
+        key = (program.name.casefold(), program.reporting_period)
+        if key not in merged:
+            merged[key] = program
+            continue
+        prior = merged[key]
+        prior.beneficiaries = list(dict.fromkeys([*prior.beneficiaries, *program.beneficiaries]))
+        prior.geography = list(dict.fromkeys([*prior.geography, *program.geography]))
+        prior.evidence_ids = list(dict.fromkeys([*prior.evidence_ids, *program.evidence_ids]))
+        prior.description = prior.description or program.description
+        prior.source_url = prior.source_url or program.source_url
+    return list(merged.values())
+
+
+def _finalise_visual_validation(card: CauseBaseCard) -> None:
+    """Mark a visual escalation validated only when its allocations survived reconciliation."""
+    validated_evidence = {
+        evidence_id for record in card.financial_records
+        for allocation in record.functional_expense_allocations
+        for evidence_id in allocation.evidence_ids
+    }
+    for source_record in card.source_native_records:
+        if source_record.source_family != "organisation-report-extract" or not validated_evidence.intersection(source_record.evidence_ids) or not source_record.source_payload:
+            continue
+        for escalation in source_record.source_payload.get("diagnostics", {}).get("vision_escalations", []):
+            escalation["validation_outcome"] = "passed_share_sum_and_total_expenses_cross_check"
+
+
 def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], now: datetime) -> None:
     abn = _abn(card)
+    pending_visual_allocations: list[tuple[dict, str, dict]] = []
     for extract in extracts:
         rows = _report_rows(extract)
         evidence_id = f"ev:report:{abn}:{extract['source_sha256'][:16]}"
@@ -240,6 +326,8 @@ def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], no
         record_id = f"src:report-extract:{abn}:{extract['source_sha256'][:16]}:{card.causebase_id}"
         card.source_native_records = [x for x in card.source_native_records if x.source_record_id != record_id]
         card.source_native_records.append(SourceNativeRecord(source_record_id=record_id, source_family="organisation-report-extract", dataset_version="2026-08-14-private-extraction", source_url=source_url, retrieved_at=now, observed_at=observed, source_fields={"filename": title, "source_sha256": extract["source_sha256"], "page_count": extract.get("page_count"), "discovery_basis": "ACNC public profile Documents field"}, source_payload={"rows": rows, "diagnostics": extract.get("extraction_diagnostics", {})}, canonical_field_mappings={"rows[].label": "financial_records[].*_breakdown", "rows[].current": "financial_records[].*_breakdown[].amount"}, evidence_ids=[evidence_id]))
+        if any(page.get("visual_observations") for page in extract.get("pages", [])):
+            pending_visual_allocations.append((extract, evidence_id, _report_period(extract)))
         # Preserve a report's fundraising signal without inferring a channel or
         # an amount where the source does not state one.
         fundraising_pages = [page["page"] for page in extract.get("pages", []) if "fundrais" in page.get("text", "").casefold()]
@@ -276,7 +364,7 @@ def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], no
         statements = _statements(rows, evidence_id, period)
         items = [FinancialLineItem(label=row["label"], category=_category(row["label"]), amount=_money(row["current"]), comparative_amount=_money(row["comparative"]), evidence_ids=[evidence_id], note=f"PDF page {row['page']}; printed page {row.get('printed_page') or 'not detected'}", source_statement="income_statement" if row["statement"] == "profit_and_loss" else "financial_position" if row["statement"] == "financial_position" else "other", source_order=index, canonical_metrics=[target for needle, target, _ in KEYS if needle in row["label"].casefold()] or ([row["section_hint"]] if row.get("unlabelled_numeric_row") and row.get("section_hint") else [])) for index, row in enumerate(rows) if row.get("current")]
         financial_id = f"fr:report:{abn}:{extract['source_sha256'][:16]}"
-        financial = Financials(financial_record_id=financial_id, period=period, reporting_scope="subject", reporting_subject_causebase_id=card.causebase_id, covered_subjects=[card.causebase_id], consolidated="unknown", attribution_method="direct_subject_report", evidence_ids=[evidence_id], revenue=metrics.get("revenue"), employee_costs=metrics.get("employee_costs"), total_expenses=metrics.get("total_expenses"), assets=metrics.get("assets"), liabilities=metrics.get("liabilities"), net_assets=metrics.get("net_assets"), income_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "income"], expense_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "expense"], balance_sheet_breakdown=[x for x in items if x.source_statement == "financial_position"], source_ordered_line_items=items, statements=statements)
+        financial = Financials(financial_record_id=financial_id, period=period, reporting_scope="subject", reporting_subject_causebase_id=card.causebase_id, covered_subjects=[card.causebase_id], consolidated="unknown", attribution_method="direct_subject_report", evidence_ids=[evidence_id], revenue=metrics.get("revenue"), employee_costs=metrics.get("employee_costs"), total_expenses=metrics.get("total_expenses"), assets=metrics.get("assets"), liabilities=metrics.get("liabilities"), net_assets=metrics.get("net_assets"), income_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "income"], expense_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "expense"], balance_sheet_breakdown=[x for x in items if x.source_statement == "financial_position"], source_ordered_line_items=items, statements=statements, functional_expense_allocations=_functional_expense_allocations(extract, evidence_id, metrics.get("total_expenses")))
         card.financial_records = [x for x in card.financial_records if x.financial_record_id != financial_id] + [financial]
         for item in items:
             label = item.label.casefold()
@@ -290,6 +378,20 @@ def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], no
             else:
                 continue
             card.funding_sources.append(FundingSourceObservation(source_type=source_type, source_label=item.label, amount=item.amount, reporting_scope="subject", evidence_ids=[evidence_id]))
+    # A chart may be printed in an annual report while the independent total is
+    # in its companion financial report.  Reconcile by shared reporting period,
+    # never by organisation name, report filename or chart category.
+    for extract, evidence_id, period in pending_visual_allocations:
+        matching = [record for record in card.financial_records if record.period.period_end == period.get("period_end") and record.total_expenses]
+        if not matching:
+            continue
+        target = matching[-1]
+        allocations = _functional_expense_allocations(extract, evidence_id, target.total_expenses)
+        if allocations:
+            target.functional_expense_allocations = [*target.functional_expense_allocations, *allocations]
+            for source_record in card.source_native_records:
+                if source_record.source_family == "organisation-report-extract" and source_record.source_fields.get("source_sha256") == extract["source_sha256"] and source_record.source_payload:
+                    source_record.source_payload["diagnostics"] = extract.get("extraction_diagnostics", {})
 
 
 def project_phase2d(input_dir: Path, output_dir: Path, dataset_version: str, *, archive_root: Path, embedding_cache_root: Path | None = None) -> dict:
@@ -323,6 +425,8 @@ def project_phase2d(input_dir: Path, output_dir: Path, dataset_version: str, *, 
             card.website = discovery[abn]["website"]
             _coverage(card, CoverageObservation(capability="website", status="observed", observed_at=now.date(), freshness_note="Public website locator acquired from the ACNC profile."))
         _reports(card, reports_by_abn.get(abn, []), discovery.get(abn, {}).get("reports", []), now)
+        card.programs = _merge_programs(card.programs)
+        _finalise_visual_validation(card)
         cards.append(CauseBaseCard.model_validate(card.model_dump(mode="json")))
     vectors = {row["causebase_id"]: row["vector"] for row in json.loads((input_dir / "embeddings.json").read_text(encoding="utf-8"))}
     similarities = json.loads((input_dir / "similarities.json").read_text(encoding="utf-8"))

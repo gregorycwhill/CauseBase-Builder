@@ -190,6 +190,26 @@ class FundraisingEstimate(BaseModel):
         return self
 
 
+class FunctionalExpenseAllocation(BaseModel):
+    """A source-reported functional allocation, kept separate from a P&L row.
+
+    Charts frequently report a share of independently reported total expenses.
+    The share is the direct observation; an amount is only a transparent
+    deterministic projection and must never be presented as another report row.
+    """
+
+    source_label: str
+    share: Decimal = Field(ge=0, le=1)
+    allocation_basis: Literal["total_expenses", "other", "unknown"] = "unknown"
+    direct_observation: bool = True
+    derived_amount: MoneyObservation | None = None
+    derivation_note: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+    page: int | None = None
+    extraction_method: str
+    extraction_confidence: Literal["high", "medium", "low"] = "medium"
+
+
 class FinancialPeriod(BaseModel):
     period_start: date | None = None
     period_end: date | None = None
@@ -234,6 +254,7 @@ class Financials(BaseModel):
     # rule for the underlying report observations.
     source_ordered_line_items: list["FinancialLineItem"] = Field(default_factory=list)
     statements: list["FinancialStatementObservation"] = Field(default_factory=list)
+    functional_expense_allocations: list[FunctionalExpenseAllocation] = Field(default_factory=list)
 
 
 class FinancialLineItem(BaseModel):
