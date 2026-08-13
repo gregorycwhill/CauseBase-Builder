@@ -16,6 +16,7 @@ from .validate import mark_manifest_validated, validate_publication
 from .taxonomy_review import run_taxonomy_review
 from .taxonomy_workflow import model_review, prepare_review, render_decisions, validate_implemented_change
 from .phase2b import project_phase2b
+from .phase2c import project_phase2c
 
 
 def build_demo(args: argparse.Namespace) -> int:
@@ -75,6 +76,19 @@ def project_phase2b_release(args: argparse.Namespace) -> int:
             print(f"- {error}")
         return 2
     print(f"Built Phase 2B candidate {args.dataset_version}: {output.resolve()}")
+    return 0
+
+
+def project_phase2c_release(args: argparse.Namespace) -> int:
+    output = Path(args.output)
+    project_phase2c(Path(args.input), output, args.dataset_version, archive_root=Path(args.archive_root), embedding_cache_root=Path(args.embedding_cache_root) if args.embedding_cache_root else None)
+    errors = validate_publication(output)
+    mark_manifest_validated(output, errors)
+    if errors:
+        print("PHASE 2C PROJECTION FAILED VALIDATION")
+        for error in errors: print(f"- {error}")
+        return 2
+    print(f"Built Phase 2B RC3 candidate {args.dataset_version}: {output.resolve()}")
     return 0
 
 
@@ -277,6 +291,9 @@ def make_parser() -> argparse.ArgumentParser:
     phase2b.add_argument("--cache-root", required=True, help="Private content-addressed synthesis cache")
     phase2b.add_argument("--model", default="gpt-5-mini")
     phase2b.set_defaults(func=project_phase2b_release)
+    phase2c = sub.add_parser("project-phase2c", help="Create RC3 information-completeness projection without summary synthesis")
+    phase2c.add_argument("--input", required=True); phase2c.add_argument("--output", required=True); phase2c.add_argument("--dataset-version", required=True); phase2c.add_argument("--archive-root", required=True); phase2c.add_argument("--embedding-cache-root")
+    phase2c.set_defaults(func=project_phase2c_release)
 
     paths = sub.add_parser("paths", help="Show configured durable/runtime/public-data paths")
     paths.add_argument("--workspace", default="..", help="CauseBase workspace root")

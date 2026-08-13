@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -225,6 +225,19 @@ class Financials(BaseModel):
     total_expenses: MoneyObservation | None = None
     assets: MoneyObservation | None = None
     liabilities: MoneyObservation | None = None
+    income_breakdown: list["FinancialLineItem"] = Field(default_factory=list)
+    expense_breakdown: list["FinancialLineItem"] = Field(default_factory=list)
+    balance_sheet_breakdown: list["FinancialLineItem"] = Field(default_factory=list)
+
+
+class FinancialLineItem(BaseModel):
+    """A selectively preserved report line, retaining its source label."""
+
+    label: str
+    category: Literal["income", "expense", "asset", "liability", "equity", "cash_flow", "other"]
+    amount: MoneyObservation
+    evidence_ids: list[str] = Field(default_factory=list)
+    note: str | None = None
 
 
 FinancialMetricName = Literal[
@@ -341,6 +354,31 @@ class Opportunity(BaseModel):
     status: Literal["current", "stale", "unknown"] = "unknown"
 
 
+class ParticipationObservation(BaseModel):
+    """A stable public participation path, distinct from a dated opportunity."""
+
+    mode: Literal["donate", "regular_giving", "bequest", "membership", "volunteer", "employment", "action", "event", "subscribe", "resource", "other"]
+    label: str
+    source_url: str | None = None
+    status: Literal["current", "historical", "stale", "unknown"] = "unknown"
+    observed_at: date | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class ProgramObservation(BaseModel):
+    """An evidence-bound program nested under an organisation unless separately governed."""
+
+    program_id: str
+    name: str
+    description: str | None = None
+    beneficiaries: list[str] = Field(default_factory=list)
+    geography: list[str] = Field(default_factory=list)
+    status: Literal["current", "historical", "stale", "unknown"] = "unknown"
+    reporting_period: str | None = None
+    source_url: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
 class SourceNativeRecord(BaseModel):
     """A public-safe, source-specific observation, never a universal claim.
 
@@ -357,6 +395,9 @@ class SourceNativeRecord(BaseModel):
     effective_from: date | None = None
     effective_to: date | None = None
     source_fields: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+    # Full structured payload where a regulator's public API is inherently
+    # nested.  Consumers must still use canonical_field_mappings for claims.
+    source_payload: dict[str, Any] | None = None
     canonical_field_mappings: dict[str, str] = Field(default_factory=dict)
     evidence_ids: list[str] = Field(default_factory=list)
 
@@ -422,6 +463,12 @@ class CauseBaseCard(BaseModel):
     legal_name: str
     display_name: str
     entity_status: str
+    canonical_url: str | None = None
+    acnc_profile_url: str | None = None
+    acnc_ais_url: str | None = None
+    operating_names: list[str] = Field(default_factory=list)
+    former_names: list[str] = Field(default_factory=list)
+    principal_location: str | None = None
     coverage: list[CoverageObservation] = Field(default_factory=list)
     enrichment_level: Literal["registered", "thin", "enriched", "rich"] | None = None
 
@@ -436,7 +483,9 @@ class CauseBaseCard(BaseModel):
     activities: list[str] = Field(default_factory=list)
     beneficiaries: list[str] = Field(default_factory=list)
     participation_modes: list[str] = Field(default_factory=list)
+    participation_observations: list[ParticipationObservation] = Field(default_factory=list)
     opportunities: list[Opportunity] = Field(default_factory=list)
+    programs: list[ProgramObservation] = Field(default_factory=list)
 
     # Source-native observations are intentionally separated from the concise
     # canonical card; consumers can inspect regulator semantics without
