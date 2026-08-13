@@ -12,13 +12,64 @@ from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from .models import CauseBaseCard, ComparativePeriodAmount, CoverageObservation, DerivativeAssessment, EvidenceRef, FinancialLineItem, Financials, FinancialStatementObservation, FinancialStatementRow, FunctionalExpenseAllocation, FundraisingMethodObservation, FundingSourceObservation, MoneyObservation, ParticipationObservation, ProgramObservation, SourceNativeRecord, StructuredValueObservation, SynthesisMetadata, TaxStatus
+from .models import CauseBaseCard, ComparativePeriodAmount, CoverageObservation, DerivativeAssessment, DerivedRevenueShare, EvidenceRef, FinancialLineItem, Financials, FinancialStatementObservation, FinancialStatementRow, FunctionalExpenseAllocation, FundraisingMethodObservation, FundingSourceObservation, MoneyObservation, ParticipationObservation, ProgramObservation, SourceNativeRecord, StructuredValueObservation, SynthesisMetadata, TaxStatus
 from .render import file_sha256, render_publication
 
 GENERATOR_VERSION = "0.5.0-rc4"
 EDITORIAL_POLICY_VERSION = "0.4-rc4"
 VIEWER_ROOT = "https://gregorycwhill.github.io/CauseBase-Viewer/"
 ACNC = "https://www.acnc.gov.au"
+
+# Bounded RC4 editorial remediation of the human-reviewed structured-value
+# residues. These are source wording repairs, not organisation enrichment
+# rules: each entry records whether narrative provenance can be removed (A) or
+# whether the value belonged in another field and must be omitted (C).
+STRUCTURED_VALUE_REMEDIATIONS = {
+    "Public events (website invites subscriptions and to 'keep updated on ... events')": ("A", "Public events", "Removed routine source narration."),
+    "Subscription to updates and public webinars (public events listed on website)": ("A", "Subscription to updates and public webinars", "Removed routine source narration."),
+    "Runs a mobile veterinary clinic described on the website as 100% Fear Free certified in Melbourne": ("A", "Runs a 100% Fear Free certified mobile veterinary clinic in Melbourne", "Retained substantive certification; removed source narration."),
+    "Personalised disability support services described on the organisation website": ("A", "Personalised disability support services", "Removed routine source narration."),
+    "Displays a partners section on its website (heading present in captured excerpt)": ("C", None, "A website heading alone is not a reliable activity value."),
+    "Publishes website content comparing giving fund structures and direct giving": ("A", "Publishes content comparing giving fund structures and direct giving", "Website is a provenance channel, not the activity."),
+    "Website information for donors": ("A", "Information for donors", "Removed routine source narration."),
+    "Volunteering (website invites volunteers and partners)": ("A", "Volunteering", "Removed routine source narration."),
+    "Wildlife species mentioned on the website (black rhino, snow leopards, African wild dogs, hummingbirds, macaws, birds of paradise, rediscovered Papua marsupials)": ("A", "Wildlife species including black rhino, snow leopards, African wild dogs, hummingbirds, macaws, birds of paradise and Papua marsupials", "Retained substantive examples; removed source narration."),
+    "Habitats and ecosystems cited on the website (savannas, rainforests, lower montane tropical forest)": ("A", "Habitats and ecosystems including savannas, rainforests and lower montane tropical forest", "Retained substantive examples; removed source narration."),
+    "Three local/regional retirement communities named on the website (locations not specified in provided evidence)": ("A", "Three local or regional retirement communities", "Removed source narration and unsupported location caveat."),
+    "Running regular circus classes for children and adults as described on the organisation website": ("A", "Running regular circus classes for children and adults", "Removed routine source narration."),
+    "Participation in Peace Education Program sessions in schools, universities, health care settings, veterans groups, police units and correctional facilities (as described by the foundation)": ("A", "Participation in Peace Education Program sessions in schools, universities, health care settings, veterans groups, police units and correctional facilities", "Removed routine source narration."),
+    "advocacy and policy activities as described on the website": ("A", "Advocacy and policy activities", "Removed routine source narration."),
+    "Identified as a community childrenâ€™s centre by legal name and website (Campbelltown Community Childrenâ€™s Centre Inc)": ("A", "Community children's centre", "Restructured identity evidence into a clean activity label."),
+    "Publishing news items on the organisation website": ("A", "Publishing news items", "Website is a provenance channel, not the activity."),
+    "Reading website news and announcements": ("A", "Reading news and announcements", "Website is a provenance channel, not the participation mode."),
+    "Maintaining a subscription list and website communications": ("A", "Maintaining a subscription list and communications", "Website is a provenance channel, not the activity."),
+    "Publishing exhibition details and artist statements on the organisation website": ("A", "Publishing exhibition details and artist statements", "Website is a provenance channel, not the activity."),
+    "Membership sign-up (Join now, per website)": ("A", "Membership sign-up", "Removed routine source narration."),
+    "Public investiture services / ceremonies (moleben text on website)": ("A", "Public investiture services and ceremonies", "Removed routine source narration."),
+    "Offering a newsletter signâ€‘up on the website for program updates and news": ("A", "Offering a newsletter sign-up for program updates and news", "Website is a provenance channel, not the activity."),
+    "People who access or view the GOOD streaming service and website content": ("A", "People who access or view GOOD streaming-service content", "Website is a delivery channel, not a beneficiary category."),
+    "Online/streaming platforms listed on the organisationâ€™s website (mobile, tablet, web, Apple TV, Smart TV, Foxtel, Fetch, Chromecast)": ("C", None, "Access platforms are not a geography value."),
+    "Downloading and streaming the GOOD app on mobile or tablet as described on the website": ("A", "Downloading and streaming the GOOD app on mobile or tablet", "Removed routine source narration."),
+    "Accessing GOOD via web or connected TV platforms listed on the website": ("A", "Accessing GOOD via web or connected-TV platforms", "Removed routine source narration."),
+    "Signing up to the website newsletter for program news": ("A", "Signing up to the newsletter for program news", "Website is a provenance channel, not the participation mode."),
+    "Website invitation to join as a member of settlement agencies": ("C", None, "Membership invitation belongs in participation, not activities."),
+    "Website presents the National Settlement Outcome Standards (described as articulating outcomes for refugees and migrants)": ("A", "Publishing National Settlement Outcome Standards for refugees and migrants", "Retained substantive subject; removed source narration."),
+    "Website includes a Reconciliation Action Plan (RAP) section": ("A", "Maintaining a Reconciliation Action Plan", "Removed routine source narration."),
+    "Membership of settlement agencies (website invitation)": ("A", "Membership of settlement agencies", "Removed routine source narration."),
+    "Attending events and workshops mentioned on the website": ("A", "Attending events and workshops", "Removed routine source narration."),
+    "Subscribing to ADC communications and resources (website subscription option)": ("A", "Subscribing to ADC communications and resources", "Removed routine source narration."),
+    "Newsletter subscription and website updates (site provides subscription field and news)": ("A", "Newsletter subscription and updates", "Removed routine source narration."),
+    "Online family payments and contact functions on the organisation website": ("A", "Online family payments and contact functions", "Website is a provenance channel, not the activity."),
+    "Families contact the organisation by phone or email (contact details on website)": ("A", "Families contact the organisation by phone or email", "Removed routine source narration."),
+    "Families use online payments via the organisation website": ("A", "Families use online payments", "Website is a provenance channel, not the participation mode."),
+}
+# Preserve Unicode punctuation with Python escapes: this source file can be
+# edited through Windows consoles whose active encoding is not UTF-8.
+STRUCTURED_VALUE_REMEDIATIONS.update({
+    "Identified as a community children\u2019s centre by legal name and website (Campbelltown Community Children\u2019s Centre Inc)": ("A", "Community children's centre", "Restructured identity evidence into a clean activity label."),
+    "Offering a newsletter sign\u2011up on the website for program updates and news": ("A", "Offering a newsletter sign-up for program updates and news", "Website is a provenance channel, not the activity."),
+    "Online/streaming platforms listed on the organisation\u2019s website (mobile, tablet, web, Apple TV, Smart TV, Foxtel, Fetch, Chromecast)": ("C", None, "Access platforms are not a geography value."),
+})
 
 
 def _abn(card: CauseBaseCard) -> str | None:
@@ -53,6 +104,12 @@ def _separate_legacy_provenance(values: list[str]) -> tuple[list[str], list[Stru
     clean, observations = [], []
     for original in values:
         value, note = original.strip(), None
+        remediation = STRUCTURED_VALUE_REMEDIATIONS.get(value)
+        if remediation:
+            classification, replacement, note = remediation
+            if classification == "C":
+                continue
+            value = replacement
         head, marker, tail = value.rpartition(" (")
         if marker and tail.endswith(")"):
             qualifier = tail[:-1].strip()
@@ -62,6 +119,15 @@ def _separate_legacy_provenance(values: list[str]) -> tuple[list[str], list[Stru
             prefix, remainder = value.split(":", 1)
             if any(token in prefix.casefold() for token in ("website", "site", "organisation")) and remainder.strip():
                 value, note = remainder.strip(), prefix.strip()
+        # Some legacy strings carry both a terminal qualifier and a reviewed
+        # residue. Apply the bounded editorial decision after removing that
+        # terminal wrapper as well.
+        remediation = STRUCTURED_VALUE_REMEDIATIONS.get(value)
+        if remediation:
+            classification, replacement, remediation_note = remediation
+            if classification == "C":
+                continue
+            value, note = replacement, remediation_note
         clean.append(value)
         observations.append(StructuredValueObservation(value=value, source_role="legacy_source_qualifier" if note else "unknown", provenance_note=note))
     return clean, observations
@@ -280,6 +346,65 @@ def _functional_expense_allocations(extract: dict, evidence_id: str, total_expen
     return allocations
 
 
+def _funding_source_type(label: str) -> str:
+    """Classify only broad source families; the printed label remains primary."""
+    lowered = label.casefold()
+    if "donation" in lowered and "fundrais" in lowered:
+        return "other"  # Explicitly mixed: never present it as donations alone.
+    if "grant" in lowered or "vla" in lowered or "government" in lowered:
+        return "government_grants_or_contracts"
+    if "fee" in lowered or "reimbursement" in lowered:
+        return "service_or_earned_income"
+    if "interest" in lowered or "investment" in lowered or "fund income" in lowered:
+        return "investment_income"
+    if "bequest" in lowered:
+        return "bequests"
+    if "donation" in lowered:
+        return "individual_donations"
+    return "other"
+
+
+def _revenue_shares(financial: Financials) -> list[DerivedRevenueShare]:
+    """Project source-labelled revenue rows over a reported total income.
+
+    Only rows physically located between a Revenue/Income heading and the next
+    Expenses/Expenditure heading are eligible. This avoids category-name
+    heuristics and prevents double-counting a subtotal as a funding source.
+    """
+    if not financial.revenue or financial.revenue.normalised_amount <= 0:
+        return []
+    result: list[DerivedRevenueShare] = []
+    for statement in financial.statements:
+        if statement.statement_type != "profit_and_loss":
+            continue
+        in_revenue = False
+        for row in statement.rows:
+            lowered = row.source_label.casefold().strip()
+            if row.row_type == "heading" and lowered in {"revenue", "income"}:
+                in_revenue = True
+                continue
+            if in_revenue and row.row_type == "heading" and lowered in {"expenses", "expenditure"}:
+                break
+            if not in_revenue or row.row_type != "line_item" or not row.current_amount:
+                continue
+            if "revenue" in row.canonical_metrics or lowered == "note" or re.fullmatch(r"[\d, ()$-]+", row.source_label):
+                continue
+            amount = row.current_amount
+            if amount.normalised_amount <= 0:
+                continue
+            result.append(DerivedRevenueShare(
+                source_label=row.source_label,
+                numerator_observation_labels=[row.source_label], numerator_amount=amount,
+                denominator_label="Total income", denominator_amount=financial.revenue,
+                formula="reported_revenue_line_divided_by_reported_total_income",
+                reporting_period_label=financial.period.label, reporting_scope=financial.reporting_scope,
+                result=(amount.normalised_amount / financial.revenue.normalised_amount),
+                rounding_note="Share is calculated from the displayed source row divided by the report's total income; mixed source labels are not narrowed.",
+                evidence_ids=row.evidence_ids,
+            ))
+    return result
+
+
 def _merge_programs(programs: list[ProgramObservation]) -> list[ProgramObservation]:
     """Merge same-period program observations without discarding source detail."""
     merged: dict[tuple[str, str | None], ProgramObservation] = {}
@@ -375,15 +500,16 @@ def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], no
         fundraising_pages = [page["page"] for page in extract.get("pages", []) if "fundrais" in page.get("text", "").casefold()]
         if fundraising_pages:
             card.fundraising_methods.append(FundraisingMethodObservation(method="other", status="current", observed_at=observed, evidence_ids=[evidence_id]))
-        # Evidence-derived participation observations use the report as their
-        # public source when a more specific public participation page has not
-        # been acquired.  No organisation-specific labels or URLs are used.
+        # A report can support participation evidence but is not an action
+        # destination. Preserve the observation as plain text unless a separate
+        # acquired action URL is explicitly available.
         report_text = "\n".join(page.get("text", "") for page in extract.get("pages", []))
         participation_terms = (("bequest", "gift in a will", "Will"), ("membership", "member", "Membership"), ("volunteer", "volunteer", "Volunteer"), ("donate", "donor", "Donate"))
-        known = {(item.mode, tuple(item.evidence_ids)) for item in card.participation_observations}
+        known_modes = {item.mode for item in card.participation_observations}
         for mode, marker, label in participation_terms:
-            if marker.casefold() in report_text.casefold() and (mode, (evidence_id,)) not in known:
-                card.participation_observations.append(ParticipationObservation(mode=mode, label=label, status="current", observed_at=observed, source_url=source_url, evidence_ids=[evidence_id]))
+            if marker.casefold() in report_text.casefold() and mode not in known_modes:
+                card.participation_observations.append(ParticipationObservation(mode=mode, label=label, status="current", observed_at=observed, evidence_ids=[evidence_id]))
+                known_modes.add(mode)
         if document_type == "Annual Report":
             _coverage(card, CoverageObservation(capability="annual_report", status="observed", source_record_id=record_id, evidence_ids=[evidence_id], observed_at=observed, freshness_note="Annual report processed through the generic report extractor."))
         if document_type == "Financial Report":
@@ -407,19 +533,15 @@ def _reports(card: CauseBaseCard, extracts: list[dict], locators: list[dict], no
         items = [FinancialLineItem(label=row["label"], category=_category(row["label"]), amount=_money(row["current"]), comparative_amount=_money(row["comparative"]), evidence_ids=[evidence_id], note=f"PDF page {row['page']}; printed page {row.get('printed_page') or 'not detected'}", source_statement="income_statement" if row["statement"] == "profit_and_loss" else "financial_position" if row["statement"] == "financial_position" else "other", source_order=index, canonical_metrics=[target for needle, target, _ in KEYS if needle in row["label"].casefold()] or ([row["section_hint"]] if row.get("unlabelled_numeric_row") and row.get("section_hint") else [])) for index, row in enumerate(rows) if row.get("current")]
         financial_id = f"fr:report:{abn}:{extract['source_sha256'][:16]}"
         financial = Financials(financial_record_id=financial_id, period=period, reporting_scope="subject", reporting_subject_causebase_id=card.causebase_id, covered_subjects=[card.causebase_id], consolidated="unknown", attribution_method="direct_subject_report", evidence_ids=[evidence_id], revenue=metrics.get("revenue"), employee_costs=metrics.get("employee_costs"), total_expenses=metrics.get("total_expenses"), assets=metrics.get("assets"), liabilities=metrics.get("liabilities"), net_assets=metrics.get("net_assets"), income_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "income"], expense_breakdown=[x for x in items if x.source_statement == "income_statement" and x.category == "expense"], balance_sheet_breakdown=[x for x in items if x.source_statement == "financial_position"], source_ordered_line_items=items, statements=statements, functional_expense_allocations=_functional_expense_allocations(extract, evidence_id, metrics.get("total_expenses"), period.get("label")))
+        financial.revenue_shares = _revenue_shares(financial)
         card.financial_records = [x for x in card.financial_records if x.financial_record_id != financial_id] + [financial]
-        for item in items:
-            label = item.label.casefold()
-            if "donation" in label and "fundrais" in label:
-                # Mixed labels are retained source-native; they are not treated as donations alone.
-                source_type = "other"
-            elif "grant" in label:
-                source_type = "government_grants_or_contracts"
-            elif "fee" in label:
-                source_type = "service_or_earned_income"
-            else:
-                continue
-            card.funding_sources.append(FundingSourceObservation(source_type=source_type, source_label=item.label, amount=item.amount, reporting_scope="subject", evidence_ids=[evidence_id]))
+        card.funding_sources = [item for item in card.funding_sources if item.evidence_ids != [evidence_id]]
+        for share in financial.revenue_shares:
+            card.funding_sources.append(FundingSourceObservation(
+                source_type=_funding_source_type(share.source_label), period_label=share.reporting_period_label,
+                source_label=share.source_label, amount=share.numerator_amount, share=share.result,
+                reporting_scope=share.reporting_scope, method="deterministic_derivation", evidence_ids=share.evidence_ids,
+            ))
     # A chart may be printed in an annual report while the independent total is
     # in its companion financial report.  Reconcile by shared reporting period,
     # never by organisation name, report filename or chart category.
@@ -458,6 +580,10 @@ def project_phase2d(input_dir: Path, output_dir: Path, dataset_version: str, *, 
         card.activities, card.activity_observations = _separate_legacy_provenance(card.activities)
         card.beneficiaries, card.beneficiary_observations = _separate_legacy_provenance(card.beneficiaries)
         card.geography, card.geography_observations = _separate_legacy_provenance(card.geography)
+        # Participation modes are compact display values rather than sourced
+        # action destinations. Apply the same bounded provenance cleanup while
+        # retaining action/provenance evidence on participation observations.
+        card.participation_modes, _ = _separate_legacy_provenance(card.participation_modes)
         if abn in ais_rows:
             legacy_id = f"src:acnc-ais-full:{abn}:2023"
             card.source_native_records = [x for x in card.source_native_records if x.source_record_id != legacy_id]

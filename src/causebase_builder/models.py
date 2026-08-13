@@ -259,6 +259,7 @@ class Financials(BaseModel):
     # rule for the underlying report observations.
     source_ordered_line_items: list["FinancialLineItem"] = Field(default_factory=list)
     statements: list["FinancialStatementObservation"] = Field(default_factory=list)
+    revenue_shares: list["DerivedRevenueShare"] = Field(default_factory=list)
     functional_expense_allocations: list[FunctionalExpenseAllocation] = Field(default_factory=list)
 
 
@@ -274,6 +275,27 @@ class FinancialLineItem(BaseModel):
     source_statement: Literal["income_statement", "financial_position", "other"] = "other"
     source_order: int | None = Field(default=None, ge=0)
     canonical_metrics: list[FinancialMetricName] = Field(default_factory=list)
+
+
+class DerivedRevenueShare(BaseModel):
+    """A conservative analytic projection over retained report observations.
+
+    The printed revenue row remains the primary observation.  This records the
+    numerator, denominator and formula needed to show a share without narrowing
+    a mixed source label or treating the result as another source fact.
+    """
+
+    source_label: str
+    numerator_observation_labels: list[str] = Field(default_factory=list)
+    numerator_amount: MoneyObservation
+    denominator_label: str
+    denominator_amount: MoneyObservation
+    formula: Literal["reported_revenue_line_divided_by_reported_total_income"]
+    reporting_period_label: str | None = None
+    reporting_scope: Literal["subject", "organisation_group", "consolidated_group", "unknown"] = "unknown"
+    result: Decimal = Field(ge=0, le=1)
+    rounding_note: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
 
 
 FinancialMetricName = Literal[
@@ -433,7 +455,9 @@ class ParticipationObservation(BaseModel):
 
     mode: Literal["donate", "regular_giving", "bequest", "membership", "volunteer", "employment", "action", "event", "subscribe", "resource", "other"]
     label: str
-    source_url: str | None = None
+    # A user action destination is distinct from a URL that merely supports
+    # the observation.  Evidence URLs live on EvidenceRef/source records.
+    action_url: str | None = None
     status: Literal["current", "historical", "stale", "unknown"] = "unknown"
     observed_at: date | None = None
     evidence_ids: list[str] = Field(default_factory=list)
