@@ -84,3 +84,16 @@ Archive, runtime and publication paths are configurable. Raw source material nev
 
 High-level CauseBase product documents remain authoritative where these implementation documents conflict with them.
 Their canonical GitHub-visible copies are in [CauseBase-Data](https://github.com/gregorycwhill/CauseBase-Data): `CURRENT_STATE.md`, `ROADMAP.md`, `IMPLEMENTATION_PLAN.md`, `TEST_PLAN.md` and `CODEX_TO_CHATGPT_HANDOFF.md`.
+
+## Public contract 0.5 fixture implementation
+
+The legacy RC4 models and publisher remain the production path. The isolated
+`causebase_builder.v05` package contains the approved v0.5 fixture work:
+
+- `v05.models` â€” public Pydantic models and exact decimal-string money types;
+- `v05.adapter.adapt_rc4_fixture` â€” deterministic, injected-context RC4 fixture adapter;
+- `v05.validate.validate_v05_card` and `validate_v05_fixture_release` â€” independent v0.5 validation.
+
+Run `python -m pytest tests/test_v05_fixture_adapter.py` for the frozen
+four-fixture conformance suite. It does not migrate the 120-card corpus or
+alter the RC4 publication path.
