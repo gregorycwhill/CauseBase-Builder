@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 from copy import deepcopy
 from causebase_builder.v05 import ReleaseContext, adapt_rc4_card, adapt_rc4_fixture, validate_v05_card
-from causebase_builder.v05.adapter import MigrationBlocker
 from causebase_builder.v05.models import CapabilityRegistry
+from causebase_builder.v05.stage import stage_rc4_release
 
 DATA=Path(__file__).parents[2]/"CauseBase-Data"/"examples"/"vnext"
 def load(name): return json.loads((DATA/name).read_text(encoding="utf-8"))
@@ -39,6 +39,15 @@ def test_v05_negative_contract_guards():
 def test_production_adapter_never_accepts_expected_card_or_invents_provenance():
     source=json.loads((DATA.parents[1]/"releases"/"rc4-2026-08-14"/"cards"/"cb_604da7f26c6c48dd934e713edc493e9f.json").read_text(encoding="utf-8"))
     context=ReleaseContext(release_id="v05-test",dataset_version="v05-test",based_on_release="phase2b-2026-08-14-rc4-fundraising-projection-correction",generated_at="2026-08-15T00:00:00Z",capability_registry={"registry_id":"capability-registry-0.5-initial","path":"x"})
-    with __import__('pytest').raises(MigrationBlocker): adapt_rc4_card(source,{},registry(),context)
+    sidecars={}
+    for path in (DATA.parents[1]/"releases"/"rc4-2026-08-14"/"source-records").glob("*.json"):
+        item=json.loads(path.read_text(encoding="utf-8")); sidecars[item["source_record_id"]]=item
+    card=adapt_rc4_card(source,sidecars,registry(),context)
+    assert card["legacy_unbound"]["activities"] == source["activity_observations"]
     adapter=(Path(__file__).parents[1]/"src"/"causebase_builder"/"v05"/"adapter.py").read_text(encoding="utf-8")
     assert "examples/vnext" not in adapter and "causebase_id ==" not in adapter
+
+def test_full_rc4_staging_migrates_all_cards_to_temp_directory(tmp_path):
+    context=ReleaseContext(release_id="v05-test",dataset_version="v05-test",based_on_release="phase2b-2026-08-14-rc4-fundraising-projection-correction",generated_at="2026-08-15T00:00:00Z",capability_registry={"registry_id":"capability-registry-0.5-initial","path":"x"})
+    cards=stage_rc4_release(DATA.parents[1]/"releases"/"rc4-2026-08-14",tmp_path,registry(),context)
+    assert len(cards)==120 and len(list((tmp_path/"cards").glob("*.json")))==120

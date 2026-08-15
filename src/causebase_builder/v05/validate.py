@@ -16,6 +16,7 @@ def validate_v05_card(raw: dict, registry: CapabilityRegistry, source_record_ids
             if not set(item.get("evidence_ids",[])) <= evidence: errors.append("broken evidence reference")
     for report in card.financial_reports:
         if report["source_record_id"] not in source_record_ids: errors.append("broken source-record reference")
+        for observation in report.get("structured_observations",[]): observations[observation["observation_id"]]=observation
         for statement in report.get("statements",[]):
             for row in statement.get("rows",[]): observations[row["observation_id"]]=row
     for metric in card.canonical_metrics:
