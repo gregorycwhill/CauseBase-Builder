@@ -17,6 +17,7 @@ from .taxonomy_review import run_taxonomy_review
 from .taxonomy_workflow import model_review, prepare_review, render_decisions, validate_implemented_change
 from .phase2b import project_phase2b
 from .phase2c import project_phase2c
+from .document_v2.evaluate import run_benchmark
 
 
 def build_demo(args: argparse.Namespace) -> int:
@@ -97,6 +98,13 @@ def show_paths(args: argparse.Namespace) -> int:
     print(f"archive_root={paths.archive_root}")
     print(f"runtime_root={paths.runtime_root}")
     print(f"data_repository_root={paths.data_repository_root}")
+    return 0
+
+
+def benchmark_golden(args: argparse.Namespace) -> int:
+    report = run_benchmark(Path(args.corpus), archive_root=Path(args.archive_root) if args.archive_root else None, runtime_root=Path(args.runtime_root))
+    print(f"Golden Corpus v{report['corpus_version']} benchmark: {report['decision_classification']}")
+    print(f"Private reports: {Path(args.runtime_root).resolve()}")
     return 0
 
 
@@ -298,6 +306,12 @@ def make_parser() -> argparse.ArgumentParser:
     paths = sub.add_parser("paths", help="Show configured durable/runtime/public-data paths")
     paths.add_argument("--workspace", default="..", help="CauseBase workspace root")
     paths.set_defaults(func=show_paths)
+
+    golden = sub.add_parser("benchmark-golden", help="Run the private Golden Corpus document-stack benchmark")
+    golden.add_argument("--corpus", required=True, help="Versioned public Golden Corpus manifest")
+    golden.add_argument("--archive-root", help="Private durable archive root; omitted means document cases are skipped")
+    golden.add_argument("--runtime-root", required=True, help="Private mutable directory for caches and reports")
+    golden.set_defaults(func=benchmark_golden)
 
     spike = sub.add_parser("reality-spike-resolve", help="Resolve cohort seeds conservatively")
     spike.add_argument("--cohort", required=True)
