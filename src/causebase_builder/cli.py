@@ -102,7 +102,7 @@ def show_paths(args: argparse.Namespace) -> int:
 
 
 def benchmark_golden(args: argparse.Namespace) -> int:
-    report = run_benchmark(Path(args.corpus), archive_root=Path(args.archive_root) if args.archive_root else None, runtime_root=Path(args.runtime_root))
+    report = run_benchmark(Path(args.corpus), archive_root=Path(args.archive_root) if args.archive_root else None, runtime_root=Path(args.runtime_root), gold_card=Path(args.gold_card) if args.gold_card else None)
     print(f"Golden Corpus v{report['corpus_version']} benchmark: {report['decision_classification']}")
     print(f"Private reports: {Path(args.runtime_root).resolve()}")
     return 0
@@ -311,6 +311,7 @@ def make_parser() -> argparse.ArgumentParser:
     golden.add_argument("--corpus", required=True, help="Versioned public Golden Corpus manifest")
     golden.add_argument("--archive-root", help="Private durable archive root; omitted means document cases are skipped")
     golden.add_argument("--runtime-root", required=True, help="Private mutable directory for caches and reports")
+    golden.add_argument("--gold-card", help="Immutable public card used only as output comparison for financial hard gold")
     golden.set_defaults(func=benchmark_golden)
 
     spike = sub.add_parser("reality-spike-resolve", help="Resolve cohort seeds conservatively")

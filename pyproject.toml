@@ -20,6 +20,11 @@ dependencies = [
 dev = [
   "pytest>=8,<10",
 ]
+document-evaluation = [
+  "pymupdf>=1.28,<2",
+  "camelot-py>=2,<3",
+  "rapidocr-onnxruntime>=1.2,<2",
+]
 
 [project.scripts]
 causebase = "causebase_builder.cli:main"
