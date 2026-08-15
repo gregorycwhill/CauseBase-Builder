@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 from copy import deepcopy
-from causebase_builder.v05 import ReleaseContext, adapt_rc4_fixture, validate_v05_card
+from causebase_builder.v05 import ReleaseContext, adapt_rc4_card, adapt_rc4_fixture, validate_v05_card
+from causebase_builder.v05.adapter import MigrationBlocker
 from causebase_builder.v05.models import CapabilityRegistry
 
 DATA=Path(__file__).parents[2]/"CauseBase-Data"/"examples"/"vnext"
@@ -35,3 +36,9 @@ def test_v05_negative_contract_guards():
     broken=deepcopy(card); broken["analytic_projections"][0].pop("derivation"); assert any("derivation" in x for x in validate_v05_card(broken,registry(),ids(broken)))
     broken=deepcopy(card); broken["derivatives"][0]["generated_under"]["output_contract_version"]="0.5"; assert any("derivative" in x for x in validate_v05_card(broken,registry(),ids(broken)))
     dfwa=load("identity-case.json"); assert dfwa["relationships"]==[] and dfwa["identity_resolution_notice"]["status"]=="unresolved_structure"
+def test_production_adapter_never_accepts_expected_card_or_invents_provenance():
+    source=json.loads((DATA.parents[1]/"releases"/"rc4-2026-08-14"/"cards"/"cb_604da7f26c6c48dd934e713edc493e9f.json").read_text(encoding="utf-8"))
+    context=ReleaseContext(release_id="v05-test",dataset_version="v05-test",based_on_release="phase2b-2026-08-14-rc4-fundraising-projection-correction",generated_at="2026-08-15T00:00:00Z",capability_registry={"registry_id":"capability-registry-0.5-initial","path":"x"})
+    with __import__('pytest').raises(MigrationBlocker): adapt_rc4_card(source,{},registry(),context)
+    adapter=(Path(__file__).parents[1]/"src"/"causebase_builder"/"v05"/"adapter.py").read_text(encoding="utf-8")
+    assert "examples/vnext" not in adapter and "causebase_id ==" not in adapter
