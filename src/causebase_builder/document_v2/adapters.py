@@ -60,7 +60,7 @@ def _pdfplumber(document: Path, *, tables: bool = True) -> list[dict]:
             if tables:
                 for index, table in enumerate(page.find_tables(), 1):
                     found.append({"table_index": index, "location": {"page": number, "bbox": list(table.bbox)}, "rows": [[cell or "" for cell in row] for row in table.extract()], "engine": "pdfplumber"})
-            pages.append({"page": number, "text": text, "blocks": blocks, "tables": found, "figures": [], "route": "native" if len(text.strip()) >= 40 else "low_text"})
+            pages.append({"page": number, "text": text, "blocks": blocks, "tables": found, "figures": [], "vector_graphics": len(page.rects) + len(page.curves), "route": "native" if len(text.strip()) >= 40 else "low_text"})
     return pages
 
 

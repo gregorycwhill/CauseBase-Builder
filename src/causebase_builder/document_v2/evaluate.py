@@ -5,6 +5,7 @@ from pathlib import Path
 from ..golden import load_corpus, resolve_document
 from .adapters import available_candidates, extract_candidate
 from .financial import reconstruct_statements, score_eja_statements
+from .visual import extract_vector_percentage_chart
 
 SHORTLIST=("pdfplumber", "pymupdf", "camelot-stream", "camelot-lattice", "tesseract", "rapidocr")
 
@@ -52,7 +53,15 @@ def run_benchmark(corpus_path: Path, *, archive_root: Path | None, runtime_root:
     if eja and gold_card: financial=score_eja_statements(reconstruct_statements(eja["result"]),gold_card)
     ocr_success=[r for r in runs if r["candidate"] in {"tesseract","rapidocr"} and r["status"]=="completed" and any(p.get("route") in {"tesseract","rapidocr"} and len(p.get("text","").strip())>=40 for p in r["result"].get("pages",[]))]
     ocr={"passed":bool(ocr_success),"successful_runs":[{"candidate":r["candidate"],"case_id":r["case_id"]} for r in ocr_success]}
-    visual={"passed":False,"status":"external_vision_not_authorized","expected":{"Legal Programs":50,"Operations & Management":31,"Campaigns & Communications":9,"Fundraising":10}}
+    expected_visual={"Legal Programs":50,"Operations & Management":31,"Campaigns & Communications":9,"Fundraising":10}
+    visual={"passed":False,"status":"not_applicable","expected":expected_visual}
+    annual=next((case for case in corpus["cases"] if case["case_id"]=="eja-annual-report-layout"),None)
+    annual_document, _=resolve_document(annual,archive_root) if annual else (None,None)
+    if annual_document:
+        visual={**extract_vector_percentage_chart(annual_document,29),"expected":expected_visual}
+        observed={item["source_label"]:item["share_percent"] for item in visual["observations"]}
+        visual["passed"]=observed==expected_visual
+        visual["status"]="completed" if visual["passed"] else "failed"
     compact=[{k:v for k,v in r.items() if k!="result"} for r in runs]
     decision,reasons=_compute_decision(financial,ocr,visual,compact)
     aggregate={}

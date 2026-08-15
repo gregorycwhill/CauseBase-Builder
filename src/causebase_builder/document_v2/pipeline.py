@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 from .adapters import available_candidates, extract_candidate
+from .visual import extract_vector_percentage_chart
 
-PIPELINE_VERSION="document-v2.2"
+PIPELINE_VERSION="document-v2.3"
 
 
 def extract_document(document: Path, *, cache_root: Path | None = None, options: dict | None = None) -> dict:
@@ -13,8 +15,9 @@ def extract_document(document: Path, *, cache_root: Path | None = None, options:
 
     The validated normal route is pdfplumber.  OCR is page-routed only when
     native text is low and is independently cache-keyed by its engine/version.
-    Vision remains deliberately unavailable until its external-data authority
-    and hard-gold evaluation are complete.
+    Vector visual extraction is page-routed locally where native drawing
+    primitives are present. It neither transmits source material nor makes
+    CauseBase semantic claims.
     """
     options=options or {}
     primary=options.get("primary_engine", "pdfplumber")
@@ -31,6 +34,13 @@ def extract_document(document: Path, *, cache_root: Path | None = None, options:
                     target.update({"text": recovered["text"], "blocks": recovered.get("blocks", []), "route": ocr_engine, "ocr": recovered.get("ocr")})
                     ocr_status={"used": True, "engine": ocr_engine, "status": "used"}
         else: ocr_status={"used": False, "engine": ocr_engine, "status": "unavailable"}
-    for page in pages:
-        page["vision"]={"route": "vision", "status": "not_authorized_or_validated"} if page.get("figures") else None
-    return {**primary_result, "pipeline_version": PIPELINE_VERSION, "options": {"primary_engine": primary, "ocr_engine": ocr_engine, **options}, "pages": pages, "lineage": {"primary": {"name": primary, "version": available_candidates()[primary]["version"]}, "ocr": {"name": ocr_engine, "version": available_candidates().get(ocr_engine, {}).get("version")}, "vision": {"status": "not_authorized_or_validated"}}, "ocr": ocr_status}
+    visual_pages=[]
+    if options.get("enable_vector_visual", True):
+        for page in pages:
+            # A percentage token is a generic, cheap precondition for this
+            # percentage-chart adapter; avoid opening every graphical page.
+            if page.get("vector_graphics", 0) < 4 or not re.search(r"\b\d{1,3}%", page.get("text", "")): continue
+            visual=extract_vector_percentage_chart(document, page["page"], cache_root=cache_root)
+            if visual["observations"]:
+                page["visual"]=visual; visual_pages.append(page["page"])
+    return {**primary_result, "pipeline_version": PIPELINE_VERSION, "options": {"primary_engine": primary, "ocr_engine": ocr_engine, **options}, "pages": pages, "lineage": {"primary": {"name": primary, "version": available_candidates()[primary]["version"]}, "ocr": {"name": ocr_engine, "version": available_candidates().get(ocr_engine, {}).get("version")}, "visual": {"name":"local_vector_colour_geometry", "implementation_version":"1", "pages":visual_pages}}, "ocr": ocr_status}
