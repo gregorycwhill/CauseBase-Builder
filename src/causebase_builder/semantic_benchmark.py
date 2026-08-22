@@ -537,8 +537,36 @@ def assessment_scopes(opportunities: list[SourceOpportunity], processed: list[di
 
 
 def prepare_review_packet(candidates: list[SemanticCandidate], *, target: int = 48) -> list[dict[str, Any]]:
-    rows = sorted(candidates, key=lambda item: item.candidate_id)[:target]
+    # Stratify deterministically across available domain/source-family pairs.
+    buckets: dict[tuple[str, str], list[SemanticCandidate]] = {}
+    for item in candidates:
+        if re.search(r"<\s*(?:!doctype|html|div|script|style)\b", item.source_text, re.I):
+            continue
+        buckets.setdefault((item.domain, item.source_family), []).append(item)
+    rows = []
+    for key in sorted(buckets):
+        rows.append(sorted(buckets[key], key=lambda item: item.candidate_id)[0])
+    if len(rows) < target:
+        used = {item.candidate_id for item in rows}
+        rows.extend(item for item in sorted(candidates, key=lambda item: item.candidate_id) if item.candidate_id not in used and not re.search(r"<\s*(?:!doctype|html|div|script|style)\b", item.source_text, re.I))
+    rows = rows[:target]
     return [{"case_id": item.candidate_id, "subject_id": item.subject_id, "domain": item.domain, "source_url": item.source_url, "source_location": item.source_location, "source_excerpt": item.source_text, "candidate_payload": item.candidate_payload, "reviewer_question": "Does this evidence support the proposed bounded observation?"} for item in rows]
+
+
+def structured_p1_candidates(*, benchmark_case_id: str, records: list[dict[str, Any]], source_family: str) -> list[dict[str, Any]]:
+    """Generate review-only P1 candidates from logical records, never raw markup."""
+    output = []
+    for record in records:
+        text = str(record.get("source_text") or record.get("campaign_event_name") or record.get("organisation") or "").strip()
+        if not text or re.search(r"<\s*(?:!doctype|html|div|script|style)\b", text, re.I):
+            continue
+        domains = []
+        if record.get("record_type") == "top30_campaign": domains = ["fundraising_campaign"]
+        elif record.get("record_type") in {"current_charity_membership", "membership_semantics"}: domains = ["fundraising_practice"]
+        elif record.get("record_type") == "fia_award_record": domains = ["fundraising_campaign"] + (["fundraising_provider_relationship"] if record.get("nominated_by") or record.get("consultant_service_provider") else [])
+        for domain in domains:
+            output.append({"benchmark_case_id": benchmark_case_id, "source_record_id": record.get("source_record_id"), "evidence_slice": text, "candidate_domain": domain, "source_family": source_family, "deterministic_rule": f"structured_{record.get('record_type')}", "review_only": True})
+    return output
 
 
 def benchmark_summary(cohort: CohortManifest, opportunities: list[SourceOpportunity], candidates: list[SemanticCandidate], adapter_results: list[dict[str, Any]]) -> dict[str, Any]:

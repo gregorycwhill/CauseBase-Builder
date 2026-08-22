@@ -14,6 +14,7 @@ from causebase_builder.semantic_benchmark import (
     build_acnc_backbone_index,
     crosswalk_against_acnc,
     load_national_acnc_backbone,
+    structured_p1_candidates,
     build_cohort,
     conservative_identity_candidates,
     assessment_scopes,
@@ -101,6 +102,12 @@ def test_national_acnc_loader_rejects_benchmark_only_population(tmp_path):
     path.write_text("ABN,Charity_Legal_Name,Charity_Website\n1,Example,example.org\n", encoding="utf-8")
     with pytest.raises(ValueError, match="national ACNC backbone"):
         load_national_acnc_backbone(path)
+
+
+def test_structured_p1_rejects_markup_and_keeps_case_binding():
+    assert structured_p1_candidates(benchmark_case_id="industry-1", records=[{"source_record_id": "x", "record_type": "current_charity_membership", "source_text": "<!doctype html><div>bad</div>"}], source_family="pfra") == []
+    rows = structured_p1_candidates(benchmark_case_id="industry-1", records=[{"source_record_id": "x", "record_type": "top30_campaign", "source_text": "Campaign"}], source_family="benchmark")
+    assert rows[0]["benchmark_case_id"] == "industry-1" and rows[0]["benchmark_case_id"] != "industry-source"
 
 
 def test_top30_rows_are_logical_and_bounded():
