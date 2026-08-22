@@ -70,6 +70,14 @@ class SourceOpportunity(BaseModel):
     refresh_observations: list[str] = Field(default_factory=list)
 
 
+class IdentityBindingCandidate(BaseModel):
+    source_record_id: str
+    candidate_subject_id: str | None = None
+    status: Literal["resolved", "candidate", "ambiguous", "unresolved"]
+    basis: str
+    external_identifier: str | None = None
+
+
 class CandidateScope(BaseModel):
     scope_type: Literal["organisation", "program", "service", "organisational_unit"] = "organisation"
     scope_id: str | None = None
@@ -235,6 +243,13 @@ def build_cohort(subjects: list[dict[str, Any]], *, target: int = 40) -> CohortM
 def source_opportunities(cohort: CohortManifest, *, source_rows: dict[str, dict[str, Any]] | None = None) -> list[SourceOpportunity]:
     source_rows = source_rows or {}
     return [SourceOpportunity(subject_id=item.subject_id, **{key: value for key, value in source_rows.get(item.subject_id, {}).items() if key in SourceOpportunity.model_fields}) for item in cohort.subjects]
+
+
+def conservative_identity_candidates(*, source_record_id: str, external_identifier: str | None, known_identifiers: dict[str, str]) -> IdentityBindingCandidate:
+    """Resolve only an exact governed identifier; names never resolve identity."""
+    if external_identifier and external_identifier in known_identifiers:
+        return IdentityBindingCandidate(source_record_id=source_record_id, candidate_subject_id=known_identifiers[external_identifier], status="resolved", basis="exact_governed_external_identifier", external_identifier=external_identifier)
+    return IdentityBindingCandidate(source_record_id=source_record_id, status="unresolved", basis="no_exact_governed_identifier", external_identifier=external_identifier)
 
 
 def assessment_scopes(opportunities: list[SourceOpportunity]) -> list[AssessmentScope]:

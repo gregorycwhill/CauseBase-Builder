@@ -9,6 +9,7 @@ from causebase_builder.semantic_benchmark import (
     FIAAwardsAdapter,
     PFRAAdapter,
     build_cohort,
+    conservative_identity_candidates,
     emit_domain_candidates,
     prepare_benchmark,
 )
@@ -37,6 +38,13 @@ def test_benchmark_review_separates_semantics_and_blockers():
     assert decision.decision_authority == "human_governed"
     with pytest.raises(ValueError):
         BenchmarkReviewDecision(case_id="seb1-y", semantic_outcome="EDIT")
+
+
+def test_identity_binding_is_exact_only():
+    resolved = conservative_identity_candidates(source_record_id="src:1", external_identifier="abn:1", known_identifiers={"abn:1": "cb:1"})
+    unresolved = conservative_identity_candidates(source_record_id="src:2", external_identifier=None, known_identifiers={"abn:1": "cb:1"})
+    assert resolved.status == "resolved" and resolved.candidate_subject_id == "cb:1"
+    assert unresolved.status == "unresolved" and unresolved.candidate_subject_id is None
 
 
 def test_cohort_is_bounded_and_deterministic():
