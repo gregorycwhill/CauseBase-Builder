@@ -36,15 +36,15 @@ def test_fixture_build_round_trip(tmp_path: Path):
     errors = validate_publication(tmp_path)
     assert errors == []
 
-    payload = json.loads((tmp_path / "causebase.json").read_text(encoding="utf-8"))
+    payload = json.loads((tmp_path / "charitygraph.json").read_text(encoding="utf-8"))
     assert len(payload["entities"]) == 3
-    publication_text = (tmp_path / "causebase.json").read_text(encoding="utf-8").lower()
+    publication_text = (tmp_path / "charitygraph.json").read_text(encoding="utf-8").lower()
     assert "fallback_prior" not in publication_text
     assert "peer_imputation" not in publication_text
     assert "midpoint" not in publication_text
     assert "point_estimate" not in publication_text
 
-    with (tmp_path / "causebase.csv").open(encoding="utf-8", newline="") as f:
+    with (tmp_path / "charitygraph.csv").open(encoding="utf-8", newline="") as f:
         csv_rows = list(csv.DictReader(f))
     assert len(csv_rows) == 3
 
@@ -62,11 +62,11 @@ def test_publication_can_include_taxonomy_coverage_and_agent_guide(tmp_path: Pat
     render_publication(
         cards, vectors, similarities, tmp_path, require_parquet=False,
         taxonomy={"taxonomy_id": "causebase", "version": "test", "terms": []},
-        agent_guide="# Retrieval\nUse `causebase.json` to locate a stable card.",
+        agent_guide="# Retrieval\nUse `charitygraph.json` to locate a stable card.",
     )
 
     assert json.loads((tmp_path / "coverage.json").read_text(encoding="utf-8"))["entity_count"] == 3
-    assert (tmp_path / "taxonomy" / "causebase-v0.json").exists()
+    assert (tmp_path / "taxonomy" / "charitygraph-v0.json").exists()
     assert (tmp_path / "agent-guide.md").exists()
     assert validate_publication(tmp_path) == []
 
@@ -123,7 +123,7 @@ def test_divergent_metric_never_silently_flattens_to_one_value():
 
 def test_real_red_cross_conflicting_revenue_is_retained_and_not_flattened():
     cards, _, _ = build_fixture_corpus(
-        Path("../CauseBase-Data/governed-inputs/reality-spike/australian-red-cross.json"),
+        Path("../charitygraph-data/governed-inputs/reality-spike/australian-red-cross.json"),
         dataset_version="reality-spike-test",
     )
 
@@ -140,11 +140,11 @@ def test_real_red_cross_conflicting_revenue_is_retained_and_not_flattened():
 
 def test_real_merri_transition_and_fitted_identity_evidence_are_retained():
     merri_cards, _, _ = build_fixture_corpus(
-        Path("../CauseBase-Data/governed-inputs/reality-spike/merri-creek-management-committee.json"),
+        Path("../charitygraph-data/governed-inputs/reality-spike/merri-creek-management-committee.json"),
         dataset_version="reality-spike-test",
     )
     fitted_cards, _, _ = build_fixture_corpus(
-        Path("../CauseBase-Data/governed-inputs/reality-spike/fitted-for-work.json"),
+        Path("../charitygraph-data/governed-inputs/reality-spike/fitted-for-work.json"),
         dataset_version="reality-spike-test",
     )
 

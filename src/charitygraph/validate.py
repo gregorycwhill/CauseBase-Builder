@@ -15,17 +15,17 @@ FORBIDDEN_PUBLIC_NAMES = {".env", "api_key.txt", "secrets.json"}
 def is_allowed_public_path(relative_path: str) -> bool:
     """Allow only explicitly rendered public artefacts in the provisional fixture release."""
     if relative_path in {
-        "causebase.json",
-        "causebase.jsonl",
-        "causebase.csv",
-        "causebase.parquet",
+        "charitygraph.json",
+        "charitygraph.jsonl",
+        "charitygraph.csv",
+        "charitygraph.parquet",
         "embeddings.json",
         "embeddings.parquet",
         "similarities.json",
         "similarities.parquet",
         "manifest.json",
         "schema/card.schema.json",
-        "taxonomy/causebase-v0.json",
+        "taxonomy/charitygraph-v0.json",
         "coverage.json",
         "agent-guide.md",
         "source-inventory.json",
@@ -98,9 +98,9 @@ def validate_publication(output_dir: Path) -> list[str]:
     errors = []
 
     required = {
-        "causebase.json",
-        "causebase.jsonl",
-        "causebase.csv",
+        "charitygraph.json",
+        "charitygraph.jsonl",
+        "charitygraph.csv",
         "embeddings.json",
         "similarities.json",
         "manifest.json",
@@ -123,7 +123,7 @@ def validate_publication(output_dir: Path) -> list[str]:
         elif not is_allowed_public_path(relative_path):
             errors.append(f"unexpected publication artefact: {relative_path}")
 
-    data_path = output_dir / "causebase.json"
+    data_path = output_dir / "charitygraph.json"
     if data_path.exists():
         rows = json.loads(data_path.read_text(encoding="utf-8"))["entities"]
         cards = [CauseBaseCard.model_validate(row) for row in rows]

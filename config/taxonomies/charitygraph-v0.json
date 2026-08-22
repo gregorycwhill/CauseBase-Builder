@@ -1,7 +1,7 @@
 {
-  "taxonomy_id": "causebase",
+  "taxonomy_id": "charitygraph",
   "version": "0.1-phase2a",
-  "name": "CauseBase taxonomy v0",
+  "name": "CharityGraph taxonomy v0",
   "status": "provisional, evidence-tested in Phase 2A",
   "dimensions": ["cause_problem", "beneficiary", "activity", "approach", "participation", "geography", "organisational_character"],
   "terms": [

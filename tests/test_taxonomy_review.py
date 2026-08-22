@@ -18,7 +18,7 @@ from causebase_builder.taxonomy_review import (
 
 
 def _taxonomy() -> dict:
-    return json.loads(Path("config/taxonomies/causebase-v0.json").read_text(encoding="utf-8"))
+    return json.loads(Path("config/taxonomies/charitygraph-v0.json").read_text(encoding="utf-8"))
 
 
 def _card(identifier: str, term_id: str | None = None) -> CauseBaseCard:

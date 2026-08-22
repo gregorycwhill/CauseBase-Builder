@@ -18,7 +18,7 @@ def test_cached_phase2a_synthesis_preserves_provenance_and_never_uses_fixture_pr
         item for item in load_governed_entities(workspace / "CauseBase-Data" / "governed-inputs" / "reality-spike")
         if item["display_name"] == "Merri Creek Management Committee"
     )
-    taxonomy = load_taxonomy(Path("config/taxonomies/causebase-v0.json"))
+    taxonomy = load_taxonomy(Path("config/taxonomies/charitygraph-v0.json"))
     pack = make_evidence_pack(entity, workspace / "archive")
     cache_file = _cache_path(tmp_path, pack=pack, taxonomy=taxonomy, model="gpt-5-mini")
     tmp_path.mkdir(exist_ok=True)

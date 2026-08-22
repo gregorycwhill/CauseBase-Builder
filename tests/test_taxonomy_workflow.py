@@ -8,7 +8,7 @@ from causebase_builder.taxonomy_workflow import HumanDecision, model_review, pre
 
 
 def _taxonomy():
-    return json.loads(Path("config/taxonomies/causebase-v0.json").read_text(encoding="utf-8"))
+    return json.loads(Path("config/taxonomies/charitygraph-v0.json").read_text(encoding="utf-8"))
 
 
 def _corpus():

@@ -50,7 +50,7 @@ def build_demo(args: argparse.Namespace) -> int:
             print(f"- {error}")
         return 2
 
-    print(f"Built and validated {len(cards)} fixture CauseBase cards")
+    print(f"Built and validated {len(cards)} fixture CharityGraph cards")
     print(f"Publication candidate: {output.resolve()}")
     return 0
 
@@ -278,7 +278,7 @@ def semantic_benchmark_prepare(args: argparse.Namespace) -> int:
 
 
 def make_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="causebase")
+    parser = argparse.ArgumentParser(prog="charitygraph")
     sub = parser.add_subparsers(dest="command", required=True)
 
     demo = sub.add_parser("demo-build", help="Build the credential-free vertical slice")
@@ -289,7 +289,7 @@ def make_parser() -> argparse.ArgumentParser:
     )
     demo.add_argument("--output", default="dist/demo")
     demo.add_argument("--dataset-version", default="demo-0.1")
-    demo.add_argument("--registry", help="Governed CauseBase Data subject registry for real-card builds")
+    demo.add_argument("--registry", help="Governed CharityGraph Data subject registry for real-card builds")
     demo.add_argument(
         "--allow-missing-parquet",
         action="store_true",
@@ -314,7 +314,7 @@ def make_parser() -> argparse.ArgumentParser:
     phase2c.set_defaults(func=project_phase2c_release)
 
     paths = sub.add_parser("paths", help="Show configured durable/runtime/public-data paths")
-    paths.add_argument("--workspace", default="..", help="CauseBase workspace root")
+    paths.add_argument("--workspace", default="..", help="CharityGraph workspace root")
     paths.set_defaults(func=show_paths)
 
     golden = sub.add_parser("benchmark-golden", help="Run the private Golden Corpus document-stack benchmark")
@@ -357,7 +357,7 @@ def make_parser() -> argparse.ArgumentParser:
     reports.add_argument("--output", required=True)
     reports.set_defaults(func=resolve_reports)
 
-    promote = sub.add_parser("promote-subject", help="Explicitly mint a durable CauseBase subject ID")
+    promote = sub.add_parser("promote-subject", help="Explicitly mint a durable legacy-compatible subject ID")
     promote.add_argument("--registry", required=True)
     promote.add_argument("--resolution-report", required=True)
     promote.add_argument("--seed-name", required=True)
@@ -379,8 +379,8 @@ def make_parser() -> argparse.ArgumentParser:
     national.set_defaults(func=build_national)
 
     review = sub.add_parser("taxonomy-review", help="Historical model-led v0.1 review runner; use taxonomy-review-prepare for the durable workflow")
-    review.add_argument("--corpus", required=True, help="Private Phase 2A canonical causebase.json")
-    review.add_argument("--taxonomy", default="config/taxonomies/causebase-v0.json", help="Frozen baseline taxonomy JSON")
+    review.add_argument("--corpus", required=True, help="Private legacy Phase 2A canonical causebase.json")
+    review.add_argument("--taxonomy", default="config/taxonomies/charitygraph-v0.json", help="Frozen baseline taxonomy JSON")
     review.add_argument("--similarities", help="Optional private Phase 2A similarities.json for aggregate diagnostics")
     review.add_argument("--output", required=True, help="Separate private archive directory for review artefacts")
     review.add_argument("--reuse-blind-review", help="Private prior taxonomy-review.json with matching frozen blind input; reruns Pass B and annex only")
@@ -411,6 +411,19 @@ def main() -> int:
     parser = make_parser()
     args = parser.parse_args()
     return args.func(args)
+
+
+def legacy_main() -> int:
+    """Run the legacy CLI alias with an explicit deprecation warning."""
+    import warnings
+
+    warnings.warn(
+        "The 'causebase' CLI is deprecated; use 'charitygraph'. "
+        "It will be removed at the next pre-1.0 breaking release.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return main()
 
 
 if __name__ == "__main__":
