@@ -73,6 +73,17 @@ def test_fia_and_pfra_source_parsers_retain_native_relationship_fields():
     assert pfra[0]["source_text"]
 
 
+def test_pfra_html_preserves_external_linked_domain():
+    records = PFRAAdapter().enumerate_html('<a href="https://charity.example.org">Example Charity</a>')
+    assert records[0]["linked_domain"] == "charity.example.org"
+
+
+def test_top30_rows_are_logical_and_bounded():
+    rows = DonorRepublicFunraisinAdapter().enumerate_top30_rows("\n".join(f"Campaign {i} raised ${i},000" for i in range(40)))
+    assert len(rows) == 30
+    assert all(row["record_type"] == "top30_campaign" for row in rows)
+
+
 def test_cohort_is_bounded_and_deterministic():
     rows = [{"subject_id": f"cb:{index}", "size": "small"} for index in range(45)]
     first = build_cohort(rows)

@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from html.parser import HTMLParser
 from collections import Counter
 from pathlib import Path
 from typing import Any, Literal
@@ -214,6 +215,27 @@ class PFRAAdapter(FundraisingIndustryAdapter):
     source_role = "fundraising_industry_self_regulatory_association"
     source_url = "https://www.pfra.org.au/"
 
+    def enumerate_html(self, html: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
+        """Extract membership labels and retain same-page linked domains."""
+        class Parser(HTMLParser):
+            def __init__(self):
+                super().__init__(); self.href = None; self.buf = []; self.rows = []
+            def handle_starttag(self, tag, attrs):
+                if tag == "a": self.href = dict(attrs).get("href"); self.buf = []
+            def handle_data(self, data):
+                if self.href is not None: self.buf.append(data)
+            def handle_endtag(self, tag):
+                if tag == "a" and self.href is not None:
+                    self.rows.append((" ".join(" ".join(self.buf).split()), self.href)); self.href = None
+        parser = Parser(); parser.feed(html); records = []
+        for index, (label, href) in enumerate(parser.rows, start=1):
+            if not label or href.startswith("#") or href.startswith("mailto:"): continue
+            low = label.casefold(); kind = "agency_membership" if any(x in low for x in ("agency", "marketing", "consult", "direct", "fundraising")) else "current_charity_membership"
+            linked_domain = re.sub(r"^www\.", "", re.sub(r"^https?://", "", href).split("/", 1)[0].casefold())
+            if not re.match(r"^https?://", href, re.I) or not linked_domain or linked_domain.endswith("pfra.org.au"): continue
+            records.append({"source_record_id": f"{self.name}:anchor:{index}", "source_url": source_url or self.source_url, "source_location": f"anchor:{index}", "source_text": label, "record_type": kind, "linked_website_url": href, "linked_domain": linked_domain, "metric_wording_preserved": True})
+        return records
+
     def enumerate_records(self, text: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
         records = []
         for index, line in enumerate(text.splitlines(), start=1):
@@ -252,6 +274,16 @@ class DonorRepublicFunraisinAdapter(FundraisingIndustryAdapter):
             records.append({"source_record_id": f"{self.name}:{index}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": value, "campaign_label": value, "reported_amount_2023": amounts[0] if amounts else None, "reported_amount_2024": amounts[1] if len(amounts) > 1 else None, "source_variance": "not_computed", "caveat": "Public revenue may omit offline funds; amounts are source-native benchmark metrics, not accounting revenue."})
         return records
 
+    def enumerate_top30_rows(self, text: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
+        rows = self.enumerate_records(text, source_url=source_url)
+        unique = {}
+        for row in rows:
+            amounts = (row.get("reported_amount_2023"), row.get("reported_amount_2024"))
+            key = re.sub(r"[^a-z0-9]+", " ", row["source_text"].casefold()).strip()
+            if not amounts[0] and not amounts[1]: continue
+            unique.setdefault(key, {**row, "record_type": "top30_campaign", "activity_mechanic": "peer-to-peer event", "source_variance": "not_computed"})
+        return list(unique.values())[:30]
+
 
 class FIAAwardsAdapter(FundraisingIndustryAdapter):
     name = "fia_awards"
@@ -266,7 +298,8 @@ class FIAAwardsAdapter(FundraisingIndustryAdapter):
             if not value or not re.search(r"finalist|winner|highly commended|nominated by|campaign|award", value, re.I):
                 continue
             status = next((term for term in ("winner", "finalist", "highly commended") if term in value.casefold()), "unspecified")
-            records.append({"source_record_id": f"{self.name}:{index}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": value, "award_year": 2026, "category": None, "organisation": None, "campaign_or_project": None, "status": status, "nominated_by": value.split("nominated by", 1)[1].strip() if "nominated by" in value.casefold() else None, "source_native_category": True})
+            match = re.search(r"nominated by:?\s*(.+)$", value, re.I)
+            records.append({"source_record_id": f"{self.name}:{index}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": value, "record_type": "fia_award_record", "award_year": 2026, "category": None, "organisation": None, "campaign_or_project": None, "status": status, "nominated_by": match.group(1).strip() if match else None, "source_native_category": True})
         return records
 
 
