@@ -11,6 +11,8 @@ from causebase_builder.semantic_benchmark import (
     normalize_v05_population,
     normalize_host,
     selection_matrix,
+    build_acnc_backbone_index,
+    crosswalk_against_acnc,
     build_cohort,
     conservative_identity_candidates,
     assessment_scopes,
@@ -79,6 +81,18 @@ def test_fia_and_pfra_source_parsers_retain_native_relationship_fields():
 def test_pfra_html_preserves_external_linked_domain():
     records = PFRAAdapter().enumerate_html('<a href="https://charity.example.org">Example Charity</a>')
     assert records[0]["linked_domain"] == "charity.example.org"
+
+
+def test_pfra_directory_member_cards_deduplicate_and_preserve_roles():
+    html = '<h4>Charity One</h4><a href="https://one.example/">https://one.example/</a><h4>Charity One</h4><a href="https://one.example/">https://one.example/</a>'
+    records = PFRAAdapter().enumerate_html(html, directory_role="current_charity_membership")
+    assert len(records) == 1 and records[0]["record_type"] == "current_charity_membership" and records[0]["charity_label"] == "Charity One"
+
+
+def test_acnc_backbone_crosswalk_keeps_name_review_only():
+    index = build_acnc_backbone_index([{"source_record_id": "acnc:1", "source_fields": {"ABN": "123", "Legal Name": "Example Charity", "Website": "www.example.org"}}])
+    rows = crosswalk_against_acnc([{"source_record_id": "x", "charity_label": "Example Charity"}], index)
+    assert rows[0]["acnc_identity"]["status"] == "candidate"
 
 
 def test_top30_rows_are_logical_and_bounded():

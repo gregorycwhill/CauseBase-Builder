@@ -256,21 +256,40 @@ class PFRAAdapter(FundraisingIndustryAdapter):
         """Extract membership labels and retain same-page linked domains."""
         class Parser(HTMLParser):
             def __init__(self):
-                super().__init__(); self.href = None; self.buf = []; self.rows = []
+                super().__init__(); self.href = None; self.buf = []; self.rows = []; self.titles = []; self.title = None; self.title_buf = []
             def handle_starttag(self, tag, attrs):
                 if tag == "a": self.href = dict(attrs).get("href"); self.buf = []
+                elif tag == "h4": self.title_buf = []
             def handle_data(self, data):
                 if self.href is not None: self.buf.append(data)
+                elif self.title_buf is not None: self.title_buf.append(data)
             def handle_endtag(self, tag):
+                if tag == "h4":
+                    value = " ".join(" ".join(self.title_buf).split()); self.title = value or None
+                    if self.title: self.titles.append(self.title)
+                    self.title_buf = []
                 if tag == "a" and self.href is not None:
-                    self.rows.append((" ".join(" ".join(self.buf).split()), self.href)); self.href = None
+                    self.rows.append((" ".join(" ".join(self.buf).split()), self.href, self.title)); self.href = None
         parser = Parser(); parser.feed(html); records = []
-        for index, (label, href) in enumerate(parser.rows, start=1):
+        seen = set()
+        for index, (label, href, member_title) in enumerate(parser.rows, start=1):
             if not label or href.startswith("#") or href.startswith("mailto:"): continue
             kind = directory_role
             linked_domain = normalize_host(href)
             if not re.match(r"^https?://", href, re.I) or not linked_domain or linked_domain.endswith("pfra.org.au"): continue
-            records.append({"source_record_id": f"{self.name}:anchor:{index}", "source_url": source_url or self.source_url, "source_location": f"anchor:{index}", "source_text": label, "record_type": kind, "charity_label": label if kind == "current_charity_membership" else None, "agency_label": label if kind == "agency_membership" else None, "linked_website_url": href, "linked_domain": linked_domain, "metric_wording_preserved": True})
+            member_label = member_title or label
+            identity_key = (kind, member_label.casefold(), linked_domain)
+            if identity_key in seen: continue
+            seen.add(identity_key)
+            records.append({"source_record_id": f"{self.name}:member:{len(seen)}", "source_url": source_url or self.source_url, "source_location": f"anchor:{index}", "source_text": member_label, "record_type": kind, "charity_label": member_label if kind == "current_charity_membership" else None, "agency_label": member_label if kind == "agency_membership" else None, "linked_website_url": href, "linked_domain": linked_domain, "metric_wording_preserved": True})
+        if directory_role == "agency_membership":
+            linked_titles = {r.get("source_text") for r in records}
+            for title in parser.titles:
+                if title in {"Fundraising Agency Members", "Charity Members"} or title in linked_titles: continue
+                key = (directory_role, title.casefold(), None)
+                if key in seen: continue
+                seen.add(key)
+                records.append({"source_record_id": f"{self.name}:member:{len(seen)}", "source_url": source_url or self.source_url, "source_location": "heading:member", "source_text": title, "record_type": directory_role, "charity_label": None, "agency_label": title, "linked_website_url": None, "linked_domain": None, "metric_wording_preserved": True})
         return records
 
     def enumerate_records(self, text: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
@@ -452,6 +471,35 @@ def crosswalk_source_records(records: list[dict[str, Any]], *, known_domains: di
         else:
             binding = {"status": "unresolved", "subject_id": None, "basis": "no_identity_signal"}
         output.append({**record, "identity_binding": binding})
+    return output
+
+
+def build_acnc_backbone_index(source_records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Index the national ACNC register without minting CauseBase subjects."""
+    domains: dict[str, list[dict[str, Any]]] = {}; names: dict[str, list[dict[str, Any]]] = {}; abns: dict[str, dict[str, Any]] = {}
+    for record in source_records:
+        fields = record.get("source_fields", {}) or record.get("source_payload", {}) or {}
+        name = fields.get("Legal Name") or fields.get("Name") or fields.get("legal_name")
+        website = fields.get("Website") or fields.get("website")
+        abn = str(fields.get("ABN") or fields.get("abn") or "").replace(" ", "") or None
+        row = {"abn": abn, "legal_name": name, "website": website, "source_record_id": record.get("source_record_id"), "source_url": record.get("source_url")}
+        if abn: abns[abn] = row
+        if name: names.setdefault(str(name).casefold(), []).append(row)
+        domain = normalize_host(website)
+        if domain: domains.setdefault(domain, []).append(row)
+    return {"domains": domains, "names": names, "abns": abns}
+
+
+def crosswalk_against_acnc(records: list[dict[str, Any]], index: dict[str, Any]) -> list[dict[str, Any]]:
+    """Bind industry observations to ACNC records, keeping names review-only."""
+    output = []
+    for record in records:
+        domain = normalize_host(record.get("linked_domain")); label = str(record.get("organisation") or record.get("charity_label") or record.get("agency_label") or record.get("charity_source_organisation_label") or "").strip()
+        matches = index.get("domains", {}).get(domain, []) if domain else []
+        basis = "exact_authoritative_domain" if matches else "name_only_review_candidate"
+        if not matches and label: matches = index.get("names", {}).get(label.casefold(), [])
+        status = "resolved" if domain and len(matches) == 1 else "ambiguous" if len(matches) > 1 else "candidate" if label else "unresolved"
+        output.append({**record, "acnc_identity": {"status": status, "basis": basis if matches else "no_identity_signal", "matches": matches}})
     return output
 
 
