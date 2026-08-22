@@ -10,6 +10,10 @@ from causebase_builder.semantic_benchmark import (
     PFRAAdapter,
     build_cohort,
     conservative_identity_candidates,
+    assessment_scopes,
+    DonorRepublicFunraisinAdapter,
+    FIAAwardsAdapter,
+    PFRAAdapter,
     emit_domain_candidates,
     prepare_benchmark,
 )
@@ -45,6 +49,28 @@ def test_identity_binding_is_exact_only():
     unresolved = conservative_identity_candidates(source_record_id="src:2", external_identifier=None, known_identifiers={"abn:1": "cb:1"})
     assert resolved.status == "resolved" and resolved.candidate_subject_id == "cb:1"
     assert unresolved.status == "unresolved" and unresolved.candidate_subject_id is None
+
+
+def test_assessment_scope_does_not_claim_unprocessed_sources():
+    assert assessment_scopes([]) == []
+    assert assessment_scopes([], [{"subject_id": "cb:1", "domain": "fundraising_campaign", "source_families": [], "source_roles": []}]) == []
+    rows = assessment_scopes([], [{"subject_id": "cb:1", "domain": "fundraising_campaign", "source_families": ["fundraising_industry_benchmark"], "source_roles": ["fundraising_industry_benchmark"]}])
+    assert rows[0].source_families == ["fundraising_industry_benchmark"]
+
+
+def test_donor_benchmark_role_and_caveat_are_source_specific():
+    adapter = DonorRepublicFunraisinAdapter()
+    assert adapter.source_role == "fundraising_industry_benchmark"
+    records = adapter.enumerate_records("Top 30 campaign raised $1,000,000")
+    assert records[0]["caveat"].startswith("Public revenue may omit offline funds")
+    assert records[0]["reported_amount_2023"] is not None
+
+
+def test_fia_and_pfra_source_parsers_retain_native_relationship_fields():
+    fia = FIAAwardsAdapter().enumerate_records("Winner: Charity — Campaign nominated by Agency")
+    assert fia[0]["status"] == "winner" and fia[0]["nominated_by"] == "Agency"
+    pfra = PFRAAdapter().enumerate_records("RFDS Victoria partnership with Cornucopia Consultancy")
+    assert pfra[0]["source_text"]
 
 
 def test_cohort_is_bounded_and_deterministic():

@@ -214,12 +214,43 @@ class PFRAAdapter(FundraisingIndustryAdapter):
     source_role = "fundraising_industry_self_regulatory_association"
     source_url = "https://www.pfra.org.au/"
 
+    def enumerate_records(self, text: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
+        records = []
+        for index, line in enumerate(text.splitlines(), start=1):
+            value = " ".join(line.split())
+            if not value:
+                continue
+            low = value.casefold()
+            if "face-to-face" in low or "self-regulatory" in low or "higher standard" in low:
+                kind = "membership_semantics"
+            elif "partnership with" in low or "represents" in low and "fundraising" in low:
+                kind = "charity_agency_relationship"
+            elif any(term in low for term in ("consultancy", "marketing", "agency", "fundraising results", "direct")):
+                kind = "agency_membership"
+            elif len(value) < 100 and not any(term in low for term in ("member", "contact", "membership")):
+                kind = "current_charity_membership"
+            else:
+                continue
+            records.append({"source_record_id": f"{self.name}:{index}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": value, "record_type": kind, "linked_domain": None, "metric_wording_preserved": True})
+        return records
+
 
 class DonorRepublicFunraisinAdapter(FundraisingIndustryAdapter):
     name = "donor_republic_funraisin"
     source_family = "fundraising_industry_p2p_benchmark"
-    source_role = "fundraising_platform_self_report"
+    source_role = "fundraising_industry_benchmark"
     source_url = "https://www.donorrepublic.com.au/"
+
+    def enumerate_records(self, text: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
+        """Extract Top-30 rows while retaining report-native metric wording."""
+        records = []
+        for index, line in enumerate(text.splitlines(), start=1):
+            value = " ".join(line.split())
+            if not value or not re.search(r"\$|campaign|event|challenge|run|walk|ride|top\s*30", value, re.I):
+                continue
+            amounts = re.findall(r"(?:AUD\s*)?\$?\s*[0-9][0-9,]*(?:\.\d+)?\s*(?:m|k)?", value, re.I)
+            records.append({"source_record_id": f"{self.name}:{index}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": value, "campaign_label": value, "reported_amount_2023": amounts[0] if amounts else None, "reported_amount_2024": amounts[1] if len(amounts) > 1 else None, "source_variance": "not_computed", "caveat": "Public revenue may omit offline funds; amounts are source-native benchmark metrics, not accounting revenue."})
+        return records
 
 
 class FIAAwardsAdapter(FundraisingIndustryAdapter):
@@ -227,6 +258,16 @@ class FIAAwardsAdapter(FundraisingIndustryAdapter):
     source_family = "fundraising_industry_awards"
     source_role = "fundraising_industry_award_record"
     source_url = "https://www.fia.org.au/"
+
+    def enumerate_records(self, text: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
+        records = []
+        for index, line in enumerate(text.splitlines(), start=1):
+            value = " ".join(line.split())
+            if not value or not re.search(r"finalist|winner|highly commended|nominated by|campaign|award", value, re.I):
+                continue
+            status = next((term for term in ("winner", "finalist", "highly commended") if term in value.casefold()), "unspecified")
+            records.append({"source_record_id": f"{self.name}:{index}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": value, "award_year": 2026, "category": None, "organisation": None, "campaign_or_project": None, "status": status, "nominated_by": value.split("nominated by", 1)[1].strip() if "nominated by" in value.casefold() else None, "source_native_category": True})
+        return records
 
 
 ADAPTERS = (PFRAAdapter(), DonorRepublicFunraisinAdapter(), FIAAwardsAdapter())
@@ -252,8 +293,36 @@ def conservative_identity_candidates(*, source_record_id: str, external_identifi
     return IdentityBindingCandidate(source_record_id=source_record_id, status="unresolved", basis="no_exact_governed_identifier", external_identifier=external_identifier)
 
 
-def assessment_scopes(opportunities: list[SourceOpportunity]) -> list[AssessmentScope]:
-    return [AssessmentScope(subject_id=item.subject_id, domain=domain, source_families=["structured_baseline", "organisation_website"], source_roles=list(item.selected_page_roles)) for item in opportunities for domain in DOMAINS]
+def crosswalk_source_records(records: list[dict[str, Any]], *, known_domains: dict[str, str]) -> list[dict[str, Any]]:
+    """Crosswalk source labels conservatively; exact domains resolve, names remain candidates."""
+    output = []
+    for record in records:
+        label = str(record.get("organisation") or record.get("charity") or record.get("charity_label") or "").strip()
+        domain = str(record.get("linked_domain") or "").casefold().strip()
+        if domain and domain in known_domains:
+            binding = {"status": "resolved", "subject_id": known_domains[domain], "basis": "exact_known_domain"}
+        elif label:
+            binding = {"status": "candidate", "subject_id": None, "basis": "name_only_candidate"}
+        else:
+            binding = {"status": "unresolved", "subject_id": None, "basis": "no_identity_signal"}
+        output.append({**record, "identity_binding": binding})
+    return output
+
+
+def selection_matrix(population: list[dict[str, Any]], crosswalk: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    hits = Counter(str(row.get("source_family")) for row in crosswalk if row.get("identity_binding", {}).get("status") == "resolved")
+    by_label = Counter(str(row.get("organisation") or row.get("charity") or row.get("charity_label") or "").casefold() for row in crosswalk)
+    matrix = []
+    for card in population:
+        label = str(card.get("display_name") or card.get("legal_name") or "")
+        matrix.append({"subject_id": card.get("causebase_id"), "display_name": label, "size": card.get("size", "unknown"), "website_richness": "available" if card.get("website") else "unknown", "report_richness": "available" if card.get("financial_records") else "unknown", "source_richness": "structured" if card.get("evidence") else "thin", "complexity_identity_signals": ["identity_ambiguity"] if card.get("subject_kind") in {"unknown", "organisation_group"} else [], "fundraising_industry_hit_count": by_label.get(label.casefold(), 0), "fundraising_industry_hit_types": sorted({str(row.get("source_family")) for row in crosswalk if str(row.get("organisation") or row.get("charity") or row.get("charity_label") or "").casefold() == label.casefold()}), "selection_status": "available_for_user_selection", "governed_cohort_selected": False})
+    return matrix
+
+
+def assessment_scopes(opportunities: list[SourceOpportunity], processed: list[dict[str, Any]] | None = None) -> list[AssessmentScope]:
+    """Report only source families/roles actually processed successfully."""
+    rows = processed or []
+    return [AssessmentScope(subject_id=row["subject_id"], domain=row["domain"], source_families=sorted(set(row.get("source_families", []))), source_roles=sorted(set(row.get("source_roles", [])))) for row in rows if row.get("source_families") and row.get("source_roles")]
 
 
 def prepare_review_packet(candidates: list[SemanticCandidate], *, target: int = 48) -> list[dict[str, Any]]:
@@ -267,7 +336,7 @@ def benchmark_summary(cohort: CohortManifest, opportunities: list[SourceOpportun
 
 def prepare_benchmark(*, subjects: list[dict[str, Any]], output_dir: Path, target: int = 40, adapter_text: dict[str, str] | None = None) -> dict[str, Any]:
     """Run deterministic PREPARE and write only private output files."""
-    cohort = build_cohort(subjects, target=target); opportunities = source_opportunities(cohort); scopes = assessment_scopes(opportunities)
+    cohort = build_cohort(subjects, target=target); opportunities = source_opportunities(cohort)
     adapter_text = adapter_text or {}
     candidates: list[SemanticCandidate] = []; adapter_results = []
     for adapter in ADAPTERS:
@@ -275,6 +344,7 @@ def prepare_benchmark(*, subjects: list[dict[str, Any]], output_dir: Path, targe
         found = adapter.candidates(text) if text else []
         candidates.extend(found)
         adapter_results.append({"adapter": adapter.name, "source_family": adapter.source_family, "source_url": adapter.source_url, "status": "enumerated" if text else "not_acquired", "record_count": len(adapter.enumerate_records(text)) if text else 0, "candidate_count": len(found), "reason": None if text else "No authorised local source snapshot supplied; adapter remains bounded and review-only."})
+    scopes = assessment_scopes(opportunities, [{"subject_id": item.subject_id, "domain": item.domain, "source_families": [item.source_family], "source_roles": [item.source_role]} for item in candidates if item.subject_id])
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "cohort.json").write_text(cohort.model_dump_json(indent=2), encoding="utf-8")
     (output_dir / "source-opportunity-inventory.json").write_text(json.dumps([x.model_dump(mode="json") for x in opportunities], indent=2), encoding="utf-8")
