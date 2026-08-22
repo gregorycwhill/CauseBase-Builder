@@ -1,21 +1,23 @@
 import json
 from pathlib import Path
 
-from causebase_builder.phase2a import (
+from charitygraph.config import load_paths
+from charitygraph.phase2a import (
     _cache_path,
     enrich_governed_entity,
     load_governed_entities,
     load_taxonomy,
     make_evidence_pack,
 )
-from causebase_builder.semantic import semantic_text
-from causebase_builder.synthesis import SYNTHESIS_PROMPT_VERSION, synthesis_prompt
+from charitygraph.semantic import semantic_text
+from charitygraph.synthesis import SYNTHESIS_PROMPT_VERSION, synthesis_prompt
 
 
 def test_cached_phase2a_synthesis_preserves_provenance_and_never_uses_fixture_prior(tmp_path: Path):
-    workspace = Path("..").resolve()
+    workspace = Path(__file__).resolve().parents[2]
+    data_repository = load_paths(workspace).data_repository_root
     entity = next(
-        item for item in load_governed_entities(workspace / "CauseBase-Data" / "governed-inputs" / "reality-spike")
+        item for item in load_governed_entities(data_repository / "governed-inputs" / "reality-spike")
         if item["display_name"] == "Merri Creek Management Committee"
     )
     taxonomy = load_taxonomy(Path("config/taxonomies/charitygraph-v0.json"))
@@ -81,9 +83,9 @@ def test_external_acnc_classifications_are_not_native_inference_or_semantic_inpu
         "classifications": [{"taxonomy_id": "acnc-register", "taxonomy_version": "2026", "term_id": "purpose.education", "term_label": "education", "assignment_method": "source_native", "evidence_ids": ["ev:acnc"]}],
         "evidence": [{"evidence_id": "ev:acnc", "source_type": "regulatory", "title": "ACNC", "observed_at": "2026-08-10"}],
     }
-    pack = make_evidence_pack(source, Path("..") / "archive")
+    pack = make_evidence_pack(source, tmp_path / "archive")
     assert "purpose.education" not in str(pack)
-    from causebase_builder.pipeline import build_card
+    from charitygraph.pipeline import build_card
     card = build_card(source, "test")
     assert "purpose.education" not in semantic_text(card)
 

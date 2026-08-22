@@ -1,5 +1,5 @@
 import hashlib, json
-from causebase_builder.document_v2.visual import associate_colour_keyed_values, extract_vector_percentage_chart
+from charitygraph.document_v2.visual import associate_colour_keyed_values, extract_vector_percentage_chart
 
 def test_colour_association_requires_one_to_one_match_and_preserves_locations():
     observations=associate_colour_keyed_values(

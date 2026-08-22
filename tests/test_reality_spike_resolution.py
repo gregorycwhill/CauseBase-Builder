@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from causebase_builder.sources.reality_spike import map_ais_coverage, resolve_cohort, resolve_report_abns
+from charitygraph.sources.reality_spike import map_ais_coverage, resolve_cohort, resolve_report_abns
 
 
 def test_name_only_spike_seeds_remain_candidates_or_ambiguous(tmp_path: Path):

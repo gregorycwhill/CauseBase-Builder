@@ -1,7 +1,7 @@
 from decimal import Decimal
 
-from causebase_builder.models import Financials
-from causebase_builder.phase2d import _donations_gifts_bequests, _report_rows, _separate_legacy_provenance, _statements
+from charitygraph.models import Financials
+from charitygraph.phase2d import _donations_gifts_bequests, _report_rows, _separate_legacy_provenance, _statements
 
 
 def test_primary_statement_rows_survive_in_source_order_before_canonical_projection():

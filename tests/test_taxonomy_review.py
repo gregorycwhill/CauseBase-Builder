@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from causebase_builder.models import CauseBaseCard, Classification, TaxonomyAmbiguity, TaxonomyMaintenanceSignals, UnmappedConcept
-from causebase_builder.openai_client import ApiResult, ApiUsage
-from causebase_builder.taxonomy_review import (
+from charitygraph.models import CauseBaseCard, Classification, TaxonomyAmbiguity, TaxonomyMaintenanceSignals, UnmappedConcept
+from charitygraph.openai_client import ApiResult, ApiUsage
+from charitygraph.taxonomy_review import (
     TAXONOMY_REVIEW_VERSION,
     TaxonomyProposal,
     assert_blind_discovery_input,
@@ -24,7 +24,7 @@ def _taxonomy() -> dict:
 def _card(identifier: str, term_id: str | None = None) -> CauseBaseCard:
     classifications = []
     if term_id:
-        classifications = [Classification(taxonomy_id="causebase", taxonomy_version="0.1-phase2a", term_id=term_id, term_label=term_id, assignment_method="llm_classification", confidence="medium")]
+        classifications = [Classification(taxonomy_id="charitygraph", taxonomy_version="0.1-phase2a", term_id=term_id, term_label=term_id, assignment_method="llm_classification", confidence="medium")]
     return CauseBaseCard(
         causebase_id=identifier, legal_name="Private name", display_name="Private name", entity_status="registered",
         causebase_summary="Restores habitat with local volunteers and runs public working bees for catchment communities.",
@@ -104,7 +104,7 @@ def test_review_runs_two_passes_then_posthoc_acnc_comparison(monkeypatch, tmp_pa
         prompts.append(input_text)
         return ApiResult(response_id="private", model=model, status="completed", output_text=json.dumps(payloads.pop(0)), usage=ApiUsage(10, 5, 15))
 
-    monkeypatch.setattr("causebase_builder.taxonomy_review.responses_create", fake_call)
+    monkeypatch.setattr("charitygraph.taxonomy_review.responses_create", fake_call)
     result = run_taxonomy_review(corpus_path=corpus_path, taxonomy_path=taxonomy_path, output_dir=tmp_path / "private-review")
 
     assert TAXONOMY_REVIEW_VERSION == result["taxonomy_review"]["review_version"]

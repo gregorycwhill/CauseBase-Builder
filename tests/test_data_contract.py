@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from causebase_builder.models import CauseBaseCard, CoverageObservation, FinancialPeriod, SourceResolution
+from charitygraph.models import CauseBaseCard, CoverageObservation, FinancialPeriod, SourceResolution
 
 
 def test_source_resolution_keeps_ambiguity_and_review_state_explicit():

@@ -22,7 +22,7 @@ Read those files before changing cross-product contracts. Do not create or maint
 
 ## Product boundary
 
-CauseBase Builder produces open, inspectable charity data. It does not implement recommendation, ranking, persuasion, donation allocation or behavioural nudging.
+CharityGraph Builder produces open, inspectable charity data. It does not implement recommendation, ranking, persuasion, donation allocation or behavioural nudging.
 
 Do not add recommendation logic without an explicit product decision changing that boundary.
 
@@ -49,7 +49,7 @@ Do not add recommendation logic without an explicit product decision changing th
 - JSON, CSV, Parquet and Markdown representations must derive from the same canonical entity/card representation.
 - A mismatch between published representations is a build failure.
 - Current public identity, card and evidence schemas are provisional until the real-data reality spike is reviewed. Do not freeze or expand them from synthetic fixtures alone.
-- Use opaque CauseBase subject IDs. ABN, ACNC ID and other source identifiers are external identifiers, not universal primary keys.
+- Use opaque legacy CauseBase subject IDs. ABN, ACNC ID and other source identifiers are external identifiers, not universal primary keys.
 
 ## Evidence and provenance
 
@@ -83,17 +83,17 @@ Use only direct disclosure, deterministic reconstruction, or a documented bounde
 - Structured outputs must validate against the relevant schema.
 - Follow `EDITORIAL_POLICY.md`.
 - Preserve uncertainty and source references.
-- Never allow promotional source wording to become CauseBase voice by default.
+- Never allow promotional source wording to become CharityGraph voice by default.
 
 ## Taxonomies
 
 - Multi-taxonomy support is foundational.
-- Never hard-code an assumption that CauseBase taxonomy is the only or canonical worldview.
+- Never hard-code an assumption that CharityGraph taxonomy is the only or canonical worldview.
 - Every classification identifies taxonomy and version.
 - Use stable term IDs.
 - Do not invent taxonomy terms at inference time.
 - Crosswalks may be approximate; preserve mapping relationship and provenance.
-- Design and test CauseBase taxonomy v0 during the reality spike; it must be usable for enriched-card classification and Viewer filtering before large-scale synthesis.
+- Design and test CharityGraph taxonomy v0 during the reality spike; it must be usable for enriched-card classification and Viewer filtering before large-scale synthesis.
 
 ## Corrections
 

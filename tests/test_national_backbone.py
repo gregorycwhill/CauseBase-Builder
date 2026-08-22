@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from causebase_builder.national import build_national_backbone, validate_structured_backbone
+from charitygraph.national import build_national_backbone, validate_structured_backbone
 
 
 def test_national_backbone_preserves_source_records_without_promoting_candidates(tmp_path: Path):

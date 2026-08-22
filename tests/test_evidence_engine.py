@@ -1,4 +1,4 @@
-from causebase_builder.evidence_engine import _identity, _fundraising
+from charitygraph.evidence_engine import _identity, _fundraising
 
 def test_identity_pilot_does_not_mint_from_name_or_website():
     result=_identity({"case_id":"ambiguous","strata":["identity_ambiguity"]},{"causebase_id":"cb_x","identity":{"website":"example.org"}})

@@ -1,7 +1,7 @@
 from datetime import date
 
-from causebase_builder.change_detection import build_change_profile, refresh_targets
-from causebase_builder.models import SubjectRelationship
+from charitygraph.change_detection import build_change_profile, refresh_targets
+from charitygraph.models import SubjectRelationship
 
 
 def test_financial_only_change_reuses_semantic_derivatives():

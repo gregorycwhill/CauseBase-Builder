@@ -1,19 +1,19 @@
-# CauseBase Taxonomy Model
+# CharityGraph Taxonomy Model
 
 **Status:** Canonical taxonomy contract  
 **Version:** 0.1
 
 ## 1. Principle
 
-CauseBase is multi-taxonomy by design.
+CharityGraph is multi-taxonomy by design.
 
 A charity exists independently of any classification scheme. A classification is an assertion that an entity maps to a term under a named, versioned taxonomy.
 
 ## 2. Supported taxonomy classes
 
-CauseBase may support:
+CharityGraph may support:
 
-- CauseBase-maintained taxonomies;
+- CharityGraph-maintained taxonomies;
 - ACNC schemes;
 - recognised external or academic schemes;
 - international schemes;
@@ -27,7 +27,7 @@ Supporting a taxonomy does not imply endorsement.
 
 Each taxonomy should define taxonomy ID, name, version, publisher/maintainer, description, source URL, licence and status.
 
-Potential statuses include CauseBase-maintained, official, recognised external, community-maintained, experimental and deprecated.
+Potential statuses include CharityGraph-maintained, official, recognised external, community-maintained, experimental and deprecated.
 
 ## 4. Terms
 
@@ -39,9 +39,9 @@ An entity classification identifies entity ID, taxonomy ID/version, term ID, ass
 
 Assignment methods may include source-native, deterministic mapping, LLM classification, human/community contribution and imported external mapping.
 
-## 6. CauseBase taxonomy design
+## 6. CharityGraph taxonomy design
 
-The native CauseBase taxonomy should optimise for discovery and machine understanding, not mimic ACNC structure.
+The native CharityGraph taxonomy should optimise for discovery and machine understanding, not mimic ACNC structure.
 
 It should consider separating dimensions that regulator schemes often collapse, including:
 
@@ -126,7 +126,7 @@ Taxonomy maintenance is a durable, private, human-governed workflow. Its
 required first stage is deterministic and makes no API call:
 
 ```text
-causebase taxonomy-review-prepare
+charitygraph taxonomy-review-prepare
   -> compact review-summary.json, pressure-report.md and empty decision record
 ```
 
@@ -136,7 +136,7 @@ representative cases and questions for people. It is not a proposal generator.
 It never writes canonical taxonomy files or cards. The sampling cap prevents a
 future reviewer from receiving the whole corpus by accident.
 
-`causebase taxonomy-review-model-review` is optional advisory analysis of that
+`charitygraph taxonomy-review-model-review` is optional advisory analysis of that
 compact packet. Its output is deliberately separate from the human decision
 record and records model, reasoning setting, input hash, token usage and cost
 privately. A model finding cannot create a taxonomy change. The legacy
@@ -144,9 +144,9 @@ privately. A model finding cannot create a taxonomy change. The legacy
 
 Humans record governed outcomes (`approve`, `reject`, `defer`, `watch`,
 `request_more_evidence`, or `modify`) in `decision-record.json`; use
-`causebase taxonomy-review-render-decisions` to render them as Markdown. Only
+`charitygraph taxonomy-review-render-decisions` to render them as Markdown. Only
 then may a separately implemented candidate taxonomy be checked with
-`causebase taxonomy-review-validate`. VALIDATE compares baseline/candidate and
+`charitygraph taxonomy-review-validate`. VALIDATE compares baseline/candidate and
 decisions, estimates current-card impact and required rebuilds, but does not
 regenerate, reclassify or publish anything.
 

@@ -17,13 +17,13 @@ uv run pytest
 Build the credential-free vertical slice:
 
 ```powershell
-uv run causebase demo-build --output ..\..\work\staging\publication\demo
+uv run charitygraph demo-build --output ..\..\work\staging\publication\demo
 ```
 
 For constrained environments without `pyarrow` only:
 
 ```powershell
-uv run causebase demo-build --allow-missing-parquet
+uv run charitygraph demo-build --allow-missing-parquet
 ```
 
 Whether missing Parquet blocks a release is explicit release policy. The synthetic fixture may use this switch; no real-release policy has been frozen before the reality spike.

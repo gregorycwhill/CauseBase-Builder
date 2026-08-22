@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
 import pytest
-from causebase_builder.golden import load_corpus, resolve_document
+from charitygraph.config import load_paths
+from charitygraph.golden import load_corpus, resolve_document
 
-CORPUS=Path(__file__).parents[2]/"CauseBase-Data"/"golden"/"corpus-v1.json"
+CORPUS = load_paths(Path(__file__).resolve().parents[2]).data_repository_root / "golden" / "corpus-v1.json"
 def test_golden_corpus_is_governed_and_has_two_truth_levels():
     corpus=load_corpus(CORPUS); cases=corpus["cases"]
     assert len(cases)==21 and {x["truth_level"] for x in cases}=={"accepted_gold","review_required"}

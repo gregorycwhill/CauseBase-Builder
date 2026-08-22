@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from causebase_builder.models import MoneyObservation
+from charitygraph.models import MoneyObservation
 
 
 def test_ais_raw_dollars_normalise_exactly():

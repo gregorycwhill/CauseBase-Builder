@@ -49,8 +49,8 @@ def _load(corpus_path: Path, taxonomy_path: Path) -> tuple[list[CauseBaseCard], 
     corpus = json.loads(corpus_path.read_text(encoding="utf-8"))
     taxonomy = json.loads(taxonomy_path.read_text(encoding="utf-8"))
     cards = [CauseBaseCard.model_validate(item) for item in corpus["entities"]]
-    if taxonomy.get("taxonomy_id") != "causebase" or taxonomy.get("version") != "0.1-phase2a":
-        raise ValueError("workflow demonstration requires frozen CauseBase 0.1-phase2a")
+    if taxonomy.get("taxonomy_id") != "charitygraph" or taxonomy.get("version") != "0.1-phase2a":
+        raise ValueError("workflow demonstration requires frozen CharityGraph 0.1-phase2a")
     return cards, taxonomy
 
 
@@ -61,11 +61,11 @@ def _builder_commit() -> str | None:
         return None
 
 
-def _case(card: CauseBaseCard, why: str) -> dict[str, Any]:
+def _case(card: CauseBaseCard, why: str, taxonomy_id: str) -> dict[str, Any]:
     return {"causebase_id": card.causebase_id, "why_diagnostic": why, "derived": {
         "summary": _derived_text(card, 480), "activities": card.activities, "beneficiaries": card.beneficiaries,
         "participation_modes": card.participation_modes, "geography": card.geography,
-        "current_causebase_classifications": [x.term_id for x in card.classifications if x.taxonomy_id == "causebase"],
+        "current_causebase_classifications": [x.term_id for x in card.classifications if x.taxonomy_id == taxonomy_id],
     }}
 
 
@@ -73,14 +73,15 @@ def _representative_cases(cards: list[CauseBaseCard], taxonomy: dict[str, Any], 
     """Stable bounded selection: positives, rich unassigned dimension cases, and sparse evidence cases."""
     selected: dict[str, dict[str, Any]] = {}
     native = {term["term_id"] for term in taxonomy["terms"]}
+    taxonomy_id = taxonomy["taxonomy_id"]
     for term in sorted(native):
-        members = [card for card in sorted(cards, key=lambda x: x.causebase_id) if any(x.taxonomy_id == "causebase" and x.term_id == term for x in card.classifications)]
-        for card in members[:limit]: selected.setdefault(card.causebase_id, _case(card, f"positive example for {term}"))
+        members = [card for card in sorted(cards, key=lambda x: x.causebase_id) if any(x.taxonomy_id == taxonomy_id and x.term_id == term for x in card.classifications)]
+        for card in members[:limit]: selected.setdefault(card.causebase_id, _case(card, f"positive example for {term}", taxonomy_id))
     for dimension in DIMENSIONS:
-        missing = [card for card in sorted(cards, key=lambda x: x.causebase_id) if (card.activities or card.beneficiaries or card.participation_modes) and not any(_term_dimension(x.term_id) == dimension for x in card.classifications if x.taxonomy_id == "causebase")]
-        for card in missing[:limit]: selected.setdefault(card.causebase_id, _case(card, f"rich evidence without {dimension} assignment"))
+        missing = [card for card in sorted(cards, key=lambda x: x.causebase_id) if (card.activities or card.beneficiaries or card.participation_modes) and not any(_term_dimension(x.term_id) == dimension for x in card.classifications if x.taxonomy_id == taxonomy_id)]
+        for card in missing[:limit]: selected.setdefault(card.causebase_id, _case(card, f"rich evidence without {dimension} assignment", taxonomy_id))
     sparse = [card for card in sorted(cards, key=lambda x: x.causebase_id) if not (card.activities or card.beneficiaries or card.participation_modes)]
-    for card in sparse[:limit]: selected.setdefault(card.causebase_id, _case(card, "sparse descriptive-evidence boundary case"))
+    for card in sparse[:limit]: selected.setdefault(card.causebase_id, _case(card, "sparse descriptive-evidence boundary case", taxonomy_id))
     return list(selected.values())[:40]
 
 
@@ -165,5 +166,5 @@ def validate_implemented_change(*, corpus_path: Path, baseline_taxonomy_path: Pa
     before={x["term_id"] for x in baseline["terms"]}; after={x["term_id"] for x in candidate["terms"]}
     base_terms={x["term_id"]: x for x in baseline["terms"]}; candidate_terms={x["term_id"]: x for x in candidate["terms"]}
     changed=sorted(term for term in before & after if base_terms[term] != candidate_terms[term])
-    result={"validation": {"schema_version": WORKFLOW_VERSION, "corpus_version": cards[0].dataset_version if cards else None, "baseline_version": baseline["version"], "candidate_version": candidate.get("version"), "terms_added": sorted(after-before), "terms_removed": sorted(before-after), "terms_definition_or_boundary_changed": changed, "affected_subject_counts": {term: sum(any(x.taxonomy_id=="causebase" and x.term_id==term for x in card.classifications) for card in cards) for term in sorted(before|after)}, "decision_ids": [x.decision_id for x in decisions], "decision_dispositions": {x.decision_id: x.disposition for x in decisions}, "non_mutating": True, "reclassification_required_for_current_assignments": sorted(set(before-after) | set(changed)), "downstream_regeneration_requirements": ["card classifications", "semantic source text", "embeddings", "neighbours", "Viewer filters", "cross-taxonomy mappings"]}}
+    result={"validation": {"schema_version": WORKFLOW_VERSION, "corpus_version": cards[0].dataset_version if cards else None, "baseline_version": baseline["version"], "candidate_version": candidate.get("version"), "terms_added": sorted(after-before), "terms_removed": sorted(before-after), "terms_definition_or_boundary_changed": changed, "affected_subject_counts": {term: sum(any(x.taxonomy_id==baseline["taxonomy_id"] and x.term_id==term for x in card.classifications) for card in cards) for term in sorted(before|after)}, "decision_ids": [x.decision_id for x in decisions], "decision_dispositions": {x.decision_id: x.disposition for x in decisions}, "non_mutating": True, "reclassification_required_for_current_assignments": sorted(set(before-after) | set(changed)), "downstream_regeneration_requirements": ["card classifications", "semantic source text", "embeddings", "neighbours", "Viewer filters", "cross-taxonomy mappings"]}}
     output_path.parent.mkdir(parents=True,exist_ok=True); output_path.write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf-8"); return result

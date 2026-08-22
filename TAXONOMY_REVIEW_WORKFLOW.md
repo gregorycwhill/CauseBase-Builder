@@ -1,7 +1,7 @@
 # Durable taxonomy review workflow
 
 Taxonomy maintenance is governed separately from per-card classification.
-The frozen `causebase` taxonomy `0.1-phase2a` remains unchanged until a human
+The frozen `charitygraph` taxonomy `0.1-phase2a` remains unchanged until a human
 authorises and implements a new version.
 
 ## 1. Prepare
@@ -9,7 +9,7 @@ authorises and implements a new version.
 Run the required, deterministic stage against a private corpus:
 
 ```powershell
-causebase taxonomy-review-prepare --corpus <causebase.json> --taxonomy <baseline.json> --output <private-review-directory> [--similarities <similarities.json>] [--previous-review <packet-or-reference>]
+charitygraph taxonomy-review-prepare --corpus <charitygraph.json> --taxonomy <baseline.json> --output <private-review-directory> [--similarities <similarities.json>] [--previous-review <packet-or-reference>]
 ```
 
 It creates `review-summary.json`, `pressure-report.md`, an empty
@@ -29,7 +29,7 @@ reported as missing coverage.
 Only after PREPARE, a reviewer may request bounded advice:
 
 ```powershell
-causebase taxonomy-review-model-review --review-summary <review-summary.json> --output <private-directory> --model <approved-model> --reasoning-effort high
+charitygraph taxonomy-review-model-review --review-summary <review-summary.json> --output <private-directory> --model <approved-model> --reasoning-effort high
 ```
 
 This writes `model-review-advisory.json` and private telemetry separately. It
@@ -45,13 +45,13 @@ the review and pressure IDs, semantic decision, rationale, boundaries,
 exclusions, representative cases and migration implications. Render it with:
 
 ```powershell
-causebase taxonomy-review-render-decisions --decision-record <decision-record.json> --output <decisions.md>
+charitygraph taxonomy-review-render-decisions --decision-record <decision-record.json> --output <decisions.md>
 ```
 
 After a separately implemented candidate taxonomy exists, run:
 
 ```powershell
-causebase taxonomy-review-validate --corpus <causebase.json> --baseline-taxonomy <baseline.json> --candidate-taxonomy <candidate.json> --decision-record <decision-record.json> --output <private-validation.json>
+charitygraph taxonomy-review-validate --corpus <charitygraph.json> --baseline-taxonomy <baseline.json> --candidate-taxonomy <candidate.json> --decision-record <decision-record.json> --output <private-validation.json>
 ```
 
 VALIDATE is deterministic and non-mutating. It reports term changes, current

@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from causebase_builder.knowledge_validation import automation_policy
-from causebase_builder.semantic_benchmark import (
+from charitygraph.knowledge_validation import automation_policy
+from charitygraph.semantic_benchmark import (
     BenchmarkReviewDecision,
     FIAAwardsAdapter,
     PFRAAdapter,

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from causebase_builder.sources.acnc import parse_acnc_register_csv
+from charitygraph.sources.acnc import parse_acnc_register_csv
 
 
 def test_acnc_adapter_uses_stable_source_identity_and_external_ids(tmp_path: Path):
