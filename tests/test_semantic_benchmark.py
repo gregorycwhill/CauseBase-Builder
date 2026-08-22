@@ -13,6 +13,7 @@ from causebase_builder.semantic_benchmark import (
     selection_matrix,
     build_acnc_backbone_index,
     crosswalk_against_acnc,
+    load_national_acnc_backbone,
     build_cohort,
     conservative_identity_candidates,
     assessment_scopes,
@@ -93,6 +94,13 @@ def test_acnc_backbone_crosswalk_keeps_name_review_only():
     index = build_acnc_backbone_index([{"source_record_id": "acnc:1", "source_fields": {"ABN": "123", "Legal Name": "Example Charity", "Website": "www.example.org"}}])
     rows = crosswalk_against_acnc([{"source_record_id": "x", "charity_label": "Example Charity"}], index)
     assert rows[0]["acnc_identity"]["status"] == "candidate"
+
+
+def test_national_acnc_loader_rejects_benchmark_only_population(tmp_path):
+    path = tmp_path / "acnc.csv"
+    path.write_text("ABN,Charity_Legal_Name,Charity_Website\n1,Example,example.org\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="national ACNC backbone"):
+        load_national_acnc_backbone(path)
 
 
 def test_top30_rows_are_logical_and_bounded():

@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import csv
 from html.parser import HTMLParser
 from collections import Counter
 from pathlib import Path
@@ -479,8 +480,8 @@ def build_acnc_backbone_index(source_records: list[dict[str, Any]]) -> dict[str,
     domains: dict[str, list[dict[str, Any]]] = {}; names: dict[str, list[dict[str, Any]]] = {}; abns: dict[str, dict[str, Any]] = {}
     for record in source_records:
         fields = record.get("source_fields", {}) or record.get("source_payload", {}) or {}
-        name = fields.get("Legal Name") or fields.get("Name") or fields.get("legal_name")
-        website = fields.get("Website") or fields.get("website")
+        name = fields.get("Legal Name") or fields.get("Charity_Legal_Name") or fields.get("Name") or fields.get("legal_name")
+        website = fields.get("Website") or fields.get("Charity_Website") or fields.get("website")
         abn = str(fields.get("ABN") or fields.get("abn") or "").replace(" ", "") or None
         row = {"abn": abn, "legal_name": name, "website": website, "source_record_id": record.get("source_record_id"), "source_url": record.get("source_url")}
         if abn: abns[abn] = row
@@ -488,6 +489,21 @@ def build_acnc_backbone_index(source_records: list[dict[str, Any]]) -> dict[str,
         domain = normalize_host(website)
         if domain: domains.setdefault(domain, []).append(row)
     return {"domains": domains, "names": names, "abns": abns}
+
+
+def load_national_acnc_backbone(path: Path, *, minimum_records: int = 10_000) -> dict[str, Any]:
+    """Load the existing normalized national register; reject benchmark-only inputs."""
+    if not path.exists():
+        raise FileNotFoundError(path)
+    records = []
+    with path.open(encoding="utf-8-sig", errors="ignore", newline="") as handle:
+        for row in csv.DictReader(handle):
+            records.append({"source_record_id": f"acnc-register:{row.get('ABN','')}", "source_fields": row})
+    if len(records) < minimum_records:
+        raise ValueError(f"national ACNC backbone requires >= {minimum_records} records; got {len(records)}")
+    index = build_acnc_backbone_index(records)
+    index.update({"source_artifact": str(path), "input_record_count": len(records), "indexed_abn_count": len(index["abns"]), "indexed_legal_name_count": len(index["names"]), "indexed_website_domain_count": len(index["domains"]), "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+    return index
 
 
 def crosswalk_against_acnc(records: list[dict[str, Any]], index: dict[str, Any]) -> list[dict[str, Any]]:
