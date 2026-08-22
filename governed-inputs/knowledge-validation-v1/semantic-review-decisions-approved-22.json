@@ -1,0 +1,156 @@
+[
+  {
+    "case_id": "kv1-5d2a5c6248ee",
+    "outcome": "REJECT",
+    "rationale": "Acknowledgement of Country / respect statement does not evidence an activity undertaken by EJA for the activities domain.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-62178e0482b3",
+    "outcome": "ACCEPT",
+    "rationale": "The text directly evidences a donation participation mode. Treat it only as participation; do not infer or manufacture an action URL.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-759a027c59ac",
+    "outcome": "WRONG_DOMAIN",
+    "rationale": "The footer establishes a contact/administrative address and DGR/identity information, not where EJA's substantive activity occurs.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-a8816bd1b597",
+    "outcome": "WRONG_DOMAIN",
+    "rationale": "The footer establishes a contact/administrative address, not activity/service geography. The source is also currently unbound.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-1d62b4b1d221",
+    "outcome": "IDENTITY_BLOCKED",
+    "rationale": "Semantically the passage supports a bounded aged-care volunteering/support activity, but the candidate is not bound to a CauseBase subject. If later bound, edit out the aspirational 'stronger communities' language.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-316fa1e51a9d",
+    "outcome": "WRONG_DOMAIN",
+    "rationale": "This is audience/marketing language inviting concert attendance, not evidence of a beneficiary group.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-7b281a4d3c35",
+    "outcome": "EDIT",
+    "rationale": "The passage directly supports APS managing structured-giving arrangements for clients, but 'leading' and downstream impact claims should not be carried into the activity observation.",
+    "editor_note": "APS helps clients manage structured giving arrangements.",
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-8e71c16bd782",
+    "outcome": "EDIT",
+    "rationale": "The direct, bounded activity is investment/support directed to a global, open and secure Internet in the Asia-Pacific. 'Unlocks opportunity', 'empowers communities' and 'driving change' are rhetorical effect claims.",
+    "editor_note": "The APNIC Foundation invests in initiatives supporting a global, open and secure Internet in the Asia-Pacific.",
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-94fef106dd14",
+    "outcome": "REJECT",
+    "rationale": "'Communities' appears in aspirational effect language and does not identify a sufficiently bounded beneficiary group.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-174e6f384df7",
+    "outcome": "ACCEPT",
+    "rationale": "'Angel Gown Program' is an explicit named program. The evidence supports the program name only; further attributes need separate evidence.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-3754d91735cd",
+    "outcome": "ACCEPT",
+    "rationale": "'Tutu Program' is an explicit named program. The evidence supports the program name only; further attributes need separate evidence.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-049f8f569830",
+    "outcome": "EDIT",
+    "rationale": "The passage supports a participation route through establishing/using a giving fund in the APS Foundation, but the observation should be structured as that participation mode rather than copying the full operational description.",
+    "editor_note": "Participation mode: establish/use a giving fund (sub-fund) in the APS Foundation.",
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-0aff35db2a82",
+    "outcome": "ACCEPT",
+    "rationale": "The navigation text directly evidences volunteering as a participation mode. It does not by itself establish an active application URL.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-0fe47956146f",
+    "outcome": "WRONG_DOMAIN",
+    "rationale": "A named person's appointment to the board is governance/personnel information, not a public participation mode.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-70cb08454f68",
+    "outcome": "ACCEPT",
+    "rationale": "The navigation text directly evidences donating money as a participation mode. It does not by itself establish an action URL.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-09bb4179108f",
+    "outcome": "REJECT",
+    "rationale": "A visitor testimonial about amenities and enjoyment does not identify a beneficiary group.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-1b6b306789a4",
+    "outcome": "ACCEPT",
+    "rationale": "The passage explicitly identifies young learners as the people prepared by the learning environment; that is a defensible beneficiary group.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-2104f9db0f5a",
+    "outcome": "ACCEPT",
+    "rationale": "The passage directly identifies bereaved families whose baby has died as recipients/beneficiaries of the service.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-2ded5da85a05",
+    "outcome": "WRONG_DOMAIN",
+    "rationale": "'All ages' and 'the whole family' describe participants/audience for a bulb-planting activity, not the charity's beneficiary group.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-0aaf6a629d55",
+    "outcome": "REJECT",
+    "rationale": "The testimonial contains no geographic proposition.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-1a2ab1436ebd",
+    "outcome": "ACCEPT",
+    "rationale": "The passage directly locates Araluen Botanic Park in native West Australian forest about 40 minutes from Perth; this is substantive site/activity geography rather than a contact address.",
+    "editor_note": null,
+    "decision_authority": "human_governed"
+  },
+  {
+    "case_id": "kv1-85e8bdc5949f",
+    "outcome": "EDIT",
+    "rationale": "The passage directly establishes Adelaide Town Hall as the venue/geography for the Symphony Series, but that geography should be scoped to the series rather than silently generalised to all ASO activity.",
+    "editor_note": "Program-scoped geography: ASO Symphony Series â€” Adelaide Town Hall.",
+    "decision_authority": "human_governed"
+  }
+]

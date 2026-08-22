@@ -1,0 +1,17 @@
+{
+  "version": "knowledge-validation-v1",
+  "source": "causebase_builder.knowledge_validation.score_decisions",
+  "scope": "22 approved human decisions only; the remaining 26 sample cases are excluded",
+  "policy": {
+    "activities": {"reviewed": 4, "accepts": 0, "policy": "HUMAN REVIEW", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."},
+    "beneficiaries": {"reviewed": 6, "accepts": 2, "policy": "HUMAN REVIEW", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."},
+    "geography": {"reviewed": 5, "accepts": 1, "policy": "HUMAN REVIEW", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."},
+    "programs": {"reviewed": 2, "accepts": 2, "policy": "HUMAN REVIEW", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."},
+    "participation": {"reviewed": 5, "accepts": 3, "policy": "HUMAN REVIEW", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."},
+    "opportunities": {"reviewed": 0, "accepts": 0, "policy": "NOT READY", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."},
+    "self_description": {"reviewed": 0, "accepts": 0, "policy": "NOT READY", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."},
+    "fundraising": {"reviewed": 0, "accepts": 0, "policy": "NOT READY", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."},
+    "identity_sensitive": {"reviewed": 0, "accepts": 0, "policy": "NOT READY", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."}
+  },
+  "auto_promotion": false
+}

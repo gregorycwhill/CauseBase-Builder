@@ -1,0 +1,38 @@
+{
+  "version": "knowledge-validation-v1",
+  "scope": {
+    "approved_decisions": 22,
+    "review_sample_total": 48,
+    "remaining_cases_unadjudicated": 26,
+    "approved_decisions_sha256": "3ccb3e302dce020eaa7a5aac8577250373f8bdbe3a27cd1d2f17911a82fc4cfa",
+    "review_packet_inputs": {
+      "pilot_sha256": "ed9e942629a52e9bed860086a0d779fdfc68d3e8f331357280a3eeeea477d52a",
+      "golden_sha256": "625b7ed070788d677f686fd2ab7c03a9ec7b7819f17673c12dd31ed27f240e67"
+    }
+  },
+  "validation": {
+    "schema_valid": true,
+    "known_case_ids": true,
+    "unique_case_ids": 22,
+    "unknown_case_ids": [],
+    "unadjudicated_cases_added": 0
+  },
+  "outcome_totals": {
+    "ACCEPT": 8,
+    "EDIT": 4,
+    "IDENTITY_BLOCKED": 1,
+    "REJECT": 4,
+    "WRONG_DOMAIN": 5
+  },
+  "domains": {
+    "activities": {"reviewed": 4, "outcomes": {"EDIT": 2, "IDENTITY_BLOCKED": 1, "REJECT": 1}, "accepts": 0, "non_accepts": 4, "policy": "HUMAN REVIEW"},
+    "beneficiaries": {"reviewed": 6, "outcomes": {"ACCEPT": 2, "REJECT": 2, "WRONG_DOMAIN": 2}, "accepts": 2, "non_accepts": 4, "policy": "HUMAN REVIEW"},
+    "geography": {"reviewed": 5, "outcomes": {"ACCEPT": 1, "EDIT": 1, "REJECT": 1, "WRONG_DOMAIN": 2}, "accepts": 1, "non_accepts": 4, "policy": "HUMAN REVIEW"},
+    "programs": {"reviewed": 2, "outcomes": {"ACCEPT": 2}, "accepts": 2, "non_accepts": 0, "policy": "HUMAN REVIEW"},
+    "participation": {"reviewed": 5, "outcomes": {"ACCEPT": 3, "EDIT": 1, "WRONG_DOMAIN": 1}, "accepts": 3, "non_accepts": 2, "policy": "HUMAN REVIEW"},
+    "opportunities": {"reviewed": 0, "outcomes": {}, "accepts": 0, "non_accepts": 0, "policy": "NOT READY"},
+    "self_description": {"reviewed": 0, "outcomes": {}, "accepts": 0, "non_accepts": 0, "policy": "NOT READY"},
+    "fundraising": {"reviewed": 0, "outcomes": {}, "accepts": 0, "non_accepts": 0, "policy": "NOT READY"},
+    "identity_sensitive": {"reviewed": 0, "outcomes": {}, "accepts": 0, "non_accepts": 0, "policy": "NOT READY"}
+  }
+}
