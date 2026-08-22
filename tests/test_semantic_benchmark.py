@@ -15,6 +15,7 @@ from causebase_builder.semantic_benchmark import (
     crosswalk_against_acnc,
     load_national_acnc_backbone,
     structured_p1_candidates,
+    separate_p0_p1,
     build_cohort,
     conservative_identity_candidates,
     assessment_scopes,
@@ -108,6 +109,11 @@ def test_structured_p1_rejects_markup_and_keeps_case_binding():
     assert structured_p1_candidates(benchmark_case_id="industry-1", records=[{"source_record_id": "x", "record_type": "current_charity_membership", "source_text": "<!doctype html><div>bad</div>"}], source_family="pfra") == []
     rows = structured_p1_candidates(benchmark_case_id="industry-1", records=[{"source_record_id": "x", "record_type": "top30_campaign", "source_text": "Campaign"}], source_family="benchmark")
     assert rows[0]["benchmark_case_id"] == "industry-1" and rows[0]["benchmark_case_id"] != "industry-source"
+
+
+def test_existing_v05_fields_are_p0_not_new_p1():
+    p0, p1 = separate_p0_p1([{"source_record_id": "v05:x", "source_family": "structured_v05"}, {"source_record_id": "pfra:x", "source_family": "fundraising_industry_pfra"}])
+    assert [x["pipeline_stage"] for x in p0] == ["P0"] and [x["pipeline_stage"] for x in p1] == ["P1"]
 
 
 def test_top30_rows_are_logical_and_bounded():

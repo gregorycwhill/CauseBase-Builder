@@ -569,6 +569,15 @@ def structured_p1_candidates(*, benchmark_case_id: str, records: list[dict[str, 
     return output
 
 
+def separate_p0_p1(records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Keep existing v0.5 answers as controls; only extraction is P1."""
+    p0, p1 = [], []
+    for record in records:
+        target = p0 if record.get("source_family") in {"structured_v05", "acnc_structured", "governed_observation"} else p1
+        target.append({**record, "pipeline_stage": "P0" if target is p0 else "P1"})
+    return p0, p1
+
+
 def benchmark_summary(cohort: CohortManifest, opportunities: list[SourceOpportunity], candidates: list[SemanticCandidate], adapter_results: list[dict[str, Any]]) -> dict[str, Any]:
     return {"version": BENCHMARK_VERSION, "design_authority_sha": DESIGN_AUTHORITY_SHA, "pipeline_stage": PIPELINE_STAGE, "cohort_subjects": len(cohort.subjects), "candidate_count": len(candidates), "candidates_by_domain": dict(sorted(Counter(item.domain for item in candidates).items())), "candidates_by_source_family": dict(sorted(Counter(item.source_family for item in candidates).items())), "source_opportunity_count": len(opportunities), "adapter_results": adapter_results, "model_calls": {"P2": 0, "P3": 0, "O": 0}, "review_only": True}
 
