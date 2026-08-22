@@ -152,7 +152,17 @@ def automation_policy(decisions: list[ReviewDecision], sample: list[dict[str, An
     for domain in DOMAINS:
         outcomes = grouped.get(domain, [])
         accepts = sum(item.outcome == "ACCEPT" for item in outcomes)
-        result[domain] = {"reviewed": len(outcomes), "accepts": accepts, "policy": "HUMAN REVIEW" if outcomes else "NOT READY", "reason": "No human-adjudicated precision evidence; no domain is auto-promotable."}
+        reviewed = len(outcomes)
+        result[domain] = {
+            "reviewed": reviewed,
+            "accepts": accepts,
+            "policy": "HUMAN REVIEW" if outcomes else "NOT READY",
+            "reason": (
+                "Human decisions are present, but the bounded sample is insufficient to authorise automation; no domain is auto-promotable."
+                if reviewed else
+                "No human-adjudicated evidence exists for this domain; it is not ready."
+            ),
+        }
     return result
 
 

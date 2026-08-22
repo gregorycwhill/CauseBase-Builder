@@ -18,6 +18,7 @@ from .taxonomy_workflow import model_review, prepare_review, render_decisions, v
 from .phase2b import project_phase2b
 from .phase2c import project_phase2c
 from .document_v2.evaluate import run_benchmark
+from .semantic_benchmark import prepare_benchmark
 
 
 def build_demo(args: argparse.Namespace) -> int:
@@ -267,6 +268,15 @@ def taxonomy_review_render_decisions(args: argparse.Namespace) -> int:
     return 0
 
 
+def semantic_benchmark_prepare(args: argparse.Namespace) -> int:
+    payload = json.loads(Path(args.subjects).read_text(encoding="utf-8"))
+    subjects = payload.get("subjects", payload) if isinstance(payload, dict) else payload
+    summary = prepare_benchmark(subjects=subjects, output_dir=Path(args.output), target=args.target)
+    print(f"Prepared private Semantic Enrichment Benchmark v1: {summary['candidate_count']} candidates")
+    print(f"Private output: {Path(args.output).resolve()}")
+    return 0
+
+
 def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="causebase")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -389,6 +399,11 @@ def make_parser() -> argparse.ArgumentParser:
     decisions = sub.add_parser("taxonomy-review-render-decisions", help="Render validated human decision JSON as Markdown")
     decisions.add_argument("--decision-record", required=True); decisions.add_argument("--output", required=True)
     decisions.set_defaults(func=taxonomy_review_render_decisions)
+    benchmark = sub.add_parser("semantic-benchmark-prepare", help="Prepare deterministic private Semantic Enrichment Benchmark v1 Steps 1-2")
+    benchmark.add_argument("--subjects", required=True, help="Private JSON list or object containing benchmark subjects")
+    benchmark.add_argument("--output", required=True, help="Private runtime/staging output directory")
+    benchmark.add_argument("--target", type=int, default=40)
+    benchmark.set_defaults(func=semantic_benchmark_prepare)
     return parser
 
 
