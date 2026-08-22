@@ -52,6 +52,12 @@ def validate_card(card: CauseBaseCard) -> list[str]:
     if len(capabilities) != len(set(capabilities)):
         errors.append(f"{card.causebase_id}: duplicate effective coverage capability")
     if card.enrichment_level in {"enriched", "rich"}:
+        fundraising_coverage = next(
+            (observation for observation in card.coverage if observation.capability == "fundraising_expenditure"),
+            None,
+        )
+        if card.fundraising_expenditure is None and fundraising_coverage is None:
+            errors.append(f"{card.causebase_id}: fundraising expenditure coverage missing")
         if card.fundraising_expenditure and card.fundraising_expenditure.normalised_amount is None:
             errors.append(f"{card.causebase_id}: blank fundraising expenditure")
         if card.fundraising_expenditure and not card.fundraising_expenditure.method:

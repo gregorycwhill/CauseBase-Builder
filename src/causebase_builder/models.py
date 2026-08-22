@@ -53,9 +53,6 @@ DerivationMethod = Literal[
     "heuristic_estimate",
     "llm_interpretation",
     "peer_imputation",
-    # Retained only so historical fixture data can still be parsed. It is not a
-    # permitted Phase 2A publication method.
-    "fallback_prior",
 ]
 
 
@@ -181,6 +178,8 @@ class FundraisingEstimate(BaseModel):
 
     @model_validator(mode="after")
     def check_range(self):
+        if self.method == "peer_imputation":
+            raise ValueError("peer imputation is not permitted for fundraising expenditure")
         if (
             self.plausible_low is not None
             and self.plausible_high is not None

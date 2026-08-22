@@ -58,7 +58,7 @@ Relevant unit/integration tests.
 Valid/unique identities, valid ABNs where applicable, plausible national counts, no catastrophic completeness regressions and financial sanity checks.
 
 ### Required-estimate invariants
-For enriched cards, fundraising expenditure, method and provenance are present and validate.
+For enriched cards, fundraising capability coverage is present and validates. If a fundraising value is available, its method and provenance must also validate; null is permitted when coverage records source unavailability.
 
 ### Taxonomy invariants
 Taxonomy IDs, versions and term IDs exist and mappings reference valid terms.

@@ -68,11 +68,9 @@ Do not silently promote an estimate or interpretation into a measured fact.
 
 ## Fundraising expenditure
 
-For enriched charities, a blank fundraising-expenditure estimate is unacceptable.
+Fundraising expenditure may be unavailable/null when selected evidence does not support a defensible value. Persist an explicit coverage observation explaining the unavailability.
 
-Use the ordered fallback defined in `PROVENANCE_AND_ESTIMATION.md`.
-
-Every published estimate must include method and provenance. Weak evidence should reduce confidence, not produce fake certainty.
+Use only direct disclosure, deterministic reconstruction, or a documented bounded interpretation. Universal priors and peer-imputation fill are prohibited for fundraising expenditure; never force a midpoint or point estimate. Every published value must include method and provenance.
 
 ## LLM usage
 
@@ -111,7 +109,7 @@ At minimum test:
 - ABN validity and entity identity;
 - source contracts;
 - financial calculations;
-- fundraising-estimation fallbacks;
+- fundraising-estimation policy and unavailable-value handling;
 - taxonomy term validity;
 - canonical card schema;
 - representation consistency;

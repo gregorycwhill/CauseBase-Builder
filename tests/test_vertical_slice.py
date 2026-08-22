@@ -15,7 +15,14 @@ def test_fixture_build_round_trip(tmp_path: Path):
     )
 
     assert len(cards) == 3
-    assert all(card.fundraising_expenditure.normalised_amount is not None for card in cards)
+    assert cards[0].fundraising_expenditure is not None
+    assert cards[1].fundraising_expenditure is not None
+    assert cards[2].fundraising_expenditure is None
+    assert all(
+        card.fundraising_expenditure is None
+        or card.fundraising_expenditure.method not in {"fallback_prior", "peer_imputation"}
+        for card in cards
+    )
     assert all(card.embedding is not None for card in cards)
 
     render_publication(
@@ -31,6 +38,11 @@ def test_fixture_build_round_trip(tmp_path: Path):
 
     payload = json.loads((tmp_path / "causebase.json").read_text(encoding="utf-8"))
     assert len(payload["entities"]) == 3
+    publication_text = (tmp_path / "causebase.json").read_text(encoding="utf-8").lower()
+    assert "fallback_prior" not in publication_text
+    assert "peer_imputation" not in publication_text
+    assert "midpoint" not in publication_text
+    assert "point_estimate" not in publication_text
 
     with (tmp_path / "causebase.csv").open(encoding="utf-8", newline="") as f:
         csv_rows = list(csv.DictReader(f))

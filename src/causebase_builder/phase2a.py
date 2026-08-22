@@ -277,14 +277,8 @@ def enrich_governed_entity(
         )
         for term_id in output["taxonomy_term_ids"] if term_id in valid_terms
     ]
-    # Phase 2A does not permit the old synthetic fallback prior. Preserve a
-    # transparent coverage state instead of presenting a made-up scalar.
-    if card.fundraising_expenditure and card.fundraising_expenditure.method == "fallback_prior":
-        card.fundraising_expenditure = None
-        card.coverage.append(CoverageObservation(
-            capability="fundraising_expenditure", status="not_available_from_source",
-            observed_at=date.today(), freshness_note="No direct or defensible derived fundraising expenditure was found in selected Phase 2A evidence.",
-        ))
+    # Unavailable fundraising expenditure remains explicitly represented by the
+    # card's coverage state; no synthetic prior or peer fill is applied here.
     # Public cards expose one effective current state per capability. Source-
     # level detail belongs in evidence, not apparently contradictory peers.
     effective_coverage: dict[str, CoverageObservation] = {}

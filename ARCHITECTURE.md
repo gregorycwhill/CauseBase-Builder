@@ -175,7 +175,7 @@ Failures should be scoped where possible.
 - One broken website should not invalidate fresh regulator data.
 - Optional-source failure should preserve prior observations with staleness metadata.
 - A material national row-count collapse should block publication.
-- Missing required fundraising estimates for enriched entities should block publication.
+- Missing fundraising values are publishable when explicit `not_available_from_source` (or equivalent) coverage is present; missing coverage should block publication.
 - Inconsistent public representations should block publication.
 
 ## 9. Cloud/container boundary

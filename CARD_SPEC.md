@@ -75,7 +75,7 @@ Financial metric sets retain every legitimate source observation and an explicit
 
 ## 9. Fundraising expenditure
 
-For an enriched card, fundraising expenditure is a required estimate.
+For an enriched card, fundraising expenditure is a required capability/coverage state. The value may be unavailable/null when the source does not support a defensible estimate.
 
 Represent:
 
@@ -164,7 +164,7 @@ An enriched card must:
 - have stable opaque CauseBase identity;
 - have a CauseBase summary;
 - identify evidence/freshness;
-- have a fundraising-expenditure estimate with method/provenance;
+- have fundraising-expenditure coverage; when a value is present, include its method/provenance;
 - use valid taxonomy IDs/terms;
 - identify relevant build versions;
 - be derivable into all required public representations;

@@ -17,11 +17,10 @@ def _fixture_observation(value: object) -> MoneyObservation:
     )
 
 
-def estimate_fundraising(source: dict) -> FundraisingEstimate:
-    """Produce the required fundraising estimate using the demo fallback ladder.
+def estimate_fundraising(source: dict) -> FundraisingEstimate | None:
+    """Return an evidence-backed estimate, or ``None`` when unavailable.
 
-    This implements only the first, heuristic, and final fallback branches for the
-    vertical slice. LLM and peer-group estimation are intentionally deferred.
+    Fundraising expenditure has no universal prior or peer-imputation fallback.
     """
     financials = source["financials"]
     period_value = financials.get("period", {})
@@ -77,30 +76,6 @@ def estimate_fundraising(source: dict) -> FundraisingEstimate:
             note="Marketing, public-relations and clearly fundraising-related components included by demo rule CB-FUND-H03.",
         )
 
-    total_expenses = source["financials"].get("total_expenses")
-    if total_expenses is None:
-        raise ValueError(
-            f"{source['causebase_id']}: cannot produce required fundraising estimate; "
-            "no direct/component evidence and no total_expenses for fallback prior"
-        )
-
-    if isinstance(total_expenses, dict):
-        total_expenses = total_expenses["normalised_amount"]
-    prior_ratio = Decimal(str(fr.get("fallback_prior_ratio", "0.15")))
-    value = Decimal(str(total_expenses)) * prior_ratio
-    return FundraisingEstimate(
-        normalised_amount=value,
-        normalised_currency="AUD",
-        reporting_period_label=period,
-        financial_record_id=financial_record_id,
-        method="fallback_prior",
-        confidence="low",
-        evidence_ids=list(fr.get("fallback_evidence_ids", [])),
-        rule_id="CB-FUND-P01",
-        note=(
-            f"No usable fundraising disclosure found in the demo evidence. "
-            f"Applied fallback prior of {prior_ratio:.0%} of total expenses."
-        ),
-        plausible_low=value * Decimal("0.6"),
-        plausible_high=value * Decimal("1.6"),
-    )
+    # Absence is a valid result.  Coverage records explain why the capability
+    # is unavailable; do not manufacture a scalar from total expenses or peers.
+    return None

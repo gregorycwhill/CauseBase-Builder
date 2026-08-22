@@ -278,8 +278,7 @@
         "annual_report": true,
         "website": true,
         "causebase_taxonomy": true,
-        "embedding": true,
-        "fundraising_estimate_method": "fallback_prior"
+        "embedding": true
       },
       "website": "https://example.org/foodshed",
       "geography": [
@@ -309,12 +308,7 @@
         "assets": 80000,
         "liabilities": 12000
       },
-      "fundraising": {
-        "fallback_prior_ratio": 0.15,
-        "fallback_evidence_ids": [
-          "ev:foodshed:annual"
-        ]
-      },
+      "fundraising": {},
       "classifications": [
         {
           "taxonomy_id": "causebase",

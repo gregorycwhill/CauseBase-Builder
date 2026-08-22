@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from causebase_builder.fundraising import estimate_fundraising
+from causebase_builder.models import FundraisingEstimate
 
 
 FIXTURE = Path("tests/fixtures/source/entities.json")
@@ -26,9 +29,16 @@ def test_heuristic_fundraising_estimate_excludes_unrelated_cost():
     assert estimate.rule_id == "CB-FUND-H03"
 
 
-def test_fallback_prior_is_never_blank():
+def test_no_evidence_returns_unavailable_and_ignores_legacy_prior_input():
     estimate = estimate_fundraising(entities()[2])
-    assert estimate.normalised_amount == 43500
-    assert estimate.method == "fallback_prior"
-    assert estimate.confidence == "low"
-    assert estimate.plausible_low < estimate.normalised_amount < estimate.plausible_high
+    assert estimate is None
+
+
+@pytest.mark.parametrize("method", ["peer_imputation", "fallback_prior"])
+def test_obsolete_fundraising_methods_are_rejected(method):
+    with pytest.raises(ValueError):
+        FundraisingEstimate(
+            normalised_amount=1,
+            method=method,
+            confidence="low",
+        )

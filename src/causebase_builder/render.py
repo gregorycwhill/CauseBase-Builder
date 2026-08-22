@@ -329,7 +329,11 @@ def render_publication(
             c.enrichment_level in {"enriched", "rich"} for c in cards
         ),
         "fundraising_method_counts": {
-            method: sum(c.fundraising_expenditure.method == method for c in cards)
+            method: sum(
+                c.fundraising_expenditure is not None
+                and c.fundraising_expenditure.method == method
+                for c in cards
+            )
             for method in sorted({c.fundraising_expenditure.method for c in cards if c.fundraising_expenditure})
         },
         "fundraising_unresolved_count": sum(c.fundraising_expenditure is None for c in cards),

@@ -115,6 +115,21 @@ def build_card(source: dict, dataset_version: str) -> CauseBaseCard:
         ]
     fundraising_source = (source.get("financial_records") or [financials_source])[0] if financial_records else {}
 
+    fundraising_estimate = (
+        estimate_fundraising({**source, "financials": fundraising_source})
+        if financial_records and fundraising_source.get("total_expenses") is not None
+        else None
+    )
+    if fundraising_estimate is None and not any(
+        observation.get("capability") == "fundraising_expenditure"
+        for observation in coverage_source
+    ):
+        coverage_source.append({
+            "capability": "fundraising_expenditure",
+            "status": "not_available_from_source",
+            "freshness_note": "No direct or defensible derived fundraising expenditure was found in selected evidence.",
+        })
+
     return CauseBaseCard(
         causebase_id=source["causebase_id"],
         subject_kind=source.get("subject_kind", source.get("subject_type", "organisation")),
@@ -138,11 +153,7 @@ def build_card(source: dict, dataset_version: str) -> CauseBaseCard:
         opportunities=opportunities,
         financial_records=financial_records,
         financial_metrics=financial_metrics,
-        fundraising_expenditure=(
-            estimate_fundraising({**source, "financials": fundraising_source})
-            if financial_records and fundraising_source.get("total_expenses") is not None
-            else None
-        ),
+            fundraising_expenditure=fundraising_estimate,
         classifications=classifications,
         evidence=evidence,
         dataset_version=dataset_version,
