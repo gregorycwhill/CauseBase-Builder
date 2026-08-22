@@ -8,6 +8,9 @@ from causebase_builder.semantic_benchmark import (
     BenchmarkReviewDecision,
     FIAAwardsAdapter,
     PFRAAdapter,
+    normalize_v05_population,
+    normalize_host,
+    selection_matrix,
     build_cohort,
     conservative_identity_candidates,
     assessment_scopes,
@@ -79,9 +82,26 @@ def test_pfra_html_preserves_external_linked_domain():
 
 
 def test_top30_rows_are_logical_and_bounded():
-    rows = DonorRepublicFunraisinAdapter().enumerate_top30_rows("\n".join(f"Campaign {i} raised ${i},000" for i in range(40)))
-    assert len(rows) == 30
+    rows = DonorRepublicFunraisinAdapter().enumerate_top30_rows("1 | Harbour Walk | Example Charity | walk | $10,000 | $12,000 | +20%\n2 | Cycle Challenge | Other Charity | cycling | $20,000 | $21,000 | +5%")
+    assert len(rows) == 2
+    assert rows[0]["charity_source_organisation_label"] == "Example Charity"
+    assert rows[0]["activity_mechanic"] == "walk"
+    assert rows[0]["reported_amount_2023"] and rows[0]["reported_amount_2024"]
     assert all(row["record_type"] == "top30_campaign" for row in rows)
+
+
+def test_nested_v05_population_normalizer_and_host():
+    rows = normalize_v05_population({"entities": [{"causebase_id": "cb:1", "identity": {"display_name": "Example", "legal_name": "Example Ltd", "operating_names": ["Ex"], "website": "HTTPS://WWW.Example.org/path", "external_identifiers": [{"scheme": "abn", "value": "1"}]}, "subject_kind": "organisation", "evidence": [{}], "financial_records": [{}]}]})
+    assert rows[0]["website_domain"] == "example.org"
+    assert rows[0]["external_identifiers"][0]["value"] == "1"
+    assert normalize_host("https://WWW.Example.org/a") == "example.org"
+
+
+def test_selection_matrix_counts_exact_and_candidate_hits():
+    population = [{"subject_id": "cb:1", "display_name": "Example", "website_domain": "example.org"}]
+    crosswalk = [{"source_family": "fundraising_industry_pfra", "identity_binding": {"status": "resolved", "subject_id": "cb:1"}}, {"source_family": "fundraising_industry_awards", "organisation": "Example", "identity_binding": {"status": "candidate", "subject_id": None}}]
+    row = selection_matrix(population, crosswalk)[0]
+    assert row["fundraising_industry_hit_count"] == 2 and row["exact_industry_hit"] and row["candidate_industry_hit"]
 
 
 def test_cohort_is_bounded_and_deterministic():

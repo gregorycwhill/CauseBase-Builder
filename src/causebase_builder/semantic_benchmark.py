@@ -36,6 +36,38 @@ def stable_hash(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
+def normalize_host(value: str | None) -> str | None:
+    if not value: return None
+    host = re.sub(r"^https?://", "", str(value).strip(), flags=re.I).split("/", 1)[0].split(":", 1)[0].casefold()
+    return host.removeprefix("www.") or None
+
+
+def normalize_v05_population(payload: dict[str, Any] | list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Read the nested immutable v0.5 identity contract into crosswalk rows."""
+    entities = payload.get("entities", []) if isinstance(payload, dict) else payload
+    rows = []
+    for card in entities:
+        # Immutable v0.5 cards in circulation use the identity fields directly;
+        # accept the nested contract as well so the crosswalk is schema-aware.
+        identity = card.get("identity") or card
+        identifiers = identity.get("external_identifiers", []) or card.get("external_identifiers", []) or []
+        rows.append({
+            "subject_id": card.get("causebase_id") or identity.get("causebase_id"),
+            "display_name": identity.get("display_name"),
+            "legal_name": identity.get("legal_name"),
+            "operating_names": identity.get("operating_names", []) or [],
+            "website": identity.get("website"),
+            "website_domain": normalize_host(identity.get("website")),
+            "external_identifiers": identifiers,
+            "subject_kind": card.get("subject_kind") or identity.get("subject_kind"),
+            "identity_ambiguity_signals": card.get("identity_ambiguity_signals", []) or identity.get("ambiguity_signals", []) or [],
+            "report_available": bool(card.get("financial_records") or card.get("annual_reports") or card.get("reports")),
+            "evidence_available": bool(card.get("evidence")),
+            "financial_available": bool(card.get("financial_records") or card.get("financial_metrics")),
+        })
+    return rows
+
+
 class CohortSubject(BaseModel):
     subject_id: str
     selection_strata: dict[str, str]
@@ -197,6 +229,11 @@ class FundraisingIndustryAdapter:
             if not value or not re.search(r"campaign|award|fundrais|face.to.face|peer.to.peer|agency|provider", value, re.I):
                 continue
             records.append({"source_record_id": f"{self.name}:{index}", "source_url": url, "source_location": f"line:{index}", "source_text": value, "metric_wording_preserved": True})
+        if not records:
+            for index, line in enumerate(lines, start=1):
+                if not re.search(r"finalist|winner|commend|nominated by|campaign|award", line, re.I): continue
+                match = re.search(r"nominated by:?\s*(.+)$", line, re.I)
+                records.append({"source_record_id": f"{self.name}:{index}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": line, "record_type": "fia_award_record", "year": 2026, "source_native_award_category": None, "organisation": None, "campaign_project": line, "status": "winner" if "winner" in line.casefold() else "finalist", "consultant_service_provider": None, "nominated_by": match.group(1).strip() if match else None})
         return records
 
     def candidates(self, text: str, *, subject_id: str | None = None, source_url: str | None = None) -> list[SemanticCandidate]:
@@ -215,7 +252,7 @@ class PFRAAdapter(FundraisingIndustryAdapter):
     source_role = "fundraising_industry_self_regulatory_association"
     source_url = "https://www.pfra.org.au/"
 
-    def enumerate_html(self, html: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
+    def enumerate_html(self, html: str, *, source_url: str | None = None, directory_role: Literal["current_charity_membership", "agency_membership"] = "current_charity_membership") -> list[dict[str, Any]]:
         """Extract membership labels and retain same-page linked domains."""
         class Parser(HTMLParser):
             def __init__(self):
@@ -230,10 +267,10 @@ class PFRAAdapter(FundraisingIndustryAdapter):
         parser = Parser(); parser.feed(html); records = []
         for index, (label, href) in enumerate(parser.rows, start=1):
             if not label or href.startswith("#") or href.startswith("mailto:"): continue
-            low = label.casefold(); kind = "agency_membership" if any(x in low for x in ("agency", "marketing", "consult", "direct", "fundraising")) else "current_charity_membership"
-            linked_domain = re.sub(r"^www\.", "", re.sub(r"^https?://", "", href).split("/", 1)[0].casefold())
+            kind = directory_role
+            linked_domain = normalize_host(href)
             if not re.match(r"^https?://", href, re.I) or not linked_domain or linked_domain.endswith("pfra.org.au"): continue
-            records.append({"source_record_id": f"{self.name}:anchor:{index}", "source_url": source_url or self.source_url, "source_location": f"anchor:{index}", "source_text": label, "record_type": kind, "linked_website_url": href, "linked_domain": linked_domain, "metric_wording_preserved": True})
+            records.append({"source_record_id": f"{self.name}:anchor:{index}", "source_url": source_url or self.source_url, "source_location": f"anchor:{index}", "source_text": label, "record_type": kind, "charity_label": label if kind == "current_charity_membership" else None, "agency_label": label if kind == "agency_membership" else None, "linked_website_url": href, "linked_domain": linked_domain, "metric_wording_preserved": True})
         return records
 
     def enumerate_records(self, text: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
@@ -259,7 +296,7 @@ class PFRAAdapter(FundraisingIndustryAdapter):
 
 class DonorRepublicFunraisinAdapter(FundraisingIndustryAdapter):
     name = "donor_republic_funraisin"
-    source_family = "fundraising_industry_p2p_benchmark"
+    source_family = "fundraising_industry_benchmark"
     source_role = "fundraising_industry_benchmark"
     source_url = "https://www.donorrepublic.com.au/"
 
@@ -275,14 +312,43 @@ class DonorRepublicFunraisinAdapter(FundraisingIndustryAdapter):
         return records
 
     def enumerate_top30_rows(self, text: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
-        rows = self.enumerate_records(text, source_url=source_url)
-        unique = {}
-        for row in rows:
-            amounts = (row.get("reported_amount_2023"), row.get("reported_amount_2024"))
-            key = re.sub(r"[^a-z0-9]+", " ", row["source_text"].casefold()).strip()
-            if not amounts[0] and not amounts[1]: continue
-            unique.setdefault(key, {**row, "record_type": "top30_campaign", "activity_mechanic": "peer-to-peer event", "source_variance": "not_computed"})
-        return list(unique.values())[:30]
+        rows = []
+        for index, line in enumerate(text.splitlines(), start=1):
+            value = " ".join(line.split())
+            match = re.match(r"^\s*(\d{1,2})\s*[|\t]\s*(.+)$", line)
+            if match:
+                parts = [x.strip() for x in re.split(r"\||\t", line) if x.strip()]
+                if len(parts) >= 3 and 1 <= int(match.group(1)) <= 30:
+                    amounts = re.findall(r"(?:AUD\s*)?\$?\s*[0-9][0-9,]*(?:\.\d+)?\s*(?:m|k)?", value, re.I)
+                    rows.append({"source_record_id": f"{self.name}:row:{match.group(1)}", "source_url": source_url or self.source_url, "source_location": f"row:{match.group(1)}", "source_text": value, "record_type": "top30_campaign", "rank": int(match.group(1)), "campaign_event_name": parts[1], "charity_source_organisation_label": parts[2], "activity_mechanic": parts[3] if len(parts) > 3 else None, "reported_amount_2023": amounts[0] if amounts else None, "reported_amount_2024": amounts[1] if len(amounts) > 1 else None, "source_reported_variance": parts[5] if len(parts) > 5 else None, "reporting_year": 2024, "source_edition": "Top 30 for 2024", "offline_revenue_caveat": "Public revenue may omit offline funds."})
+        if rows: return rows[:30]
+        # pdf text extraction represents the actual table as whitespace columns.
+        # Parse only rows between the table header and TOTALS, never narrative
+        # mentions elsewhere in the report.
+        in_table = False
+        activities = ("Walk & Run", "Run & Cycling", "Cycling", "Hosted", "Shave", "Sleep Rough", "Give Up", "Steps", "Walk", "Swim", "Trek", "Dancing")
+        for index, line in enumerate(text.splitlines(), start=1):
+            value = " ".join(line.split())
+            if "The 2024 Top 30" in value and "Revenue" in value:
+                in_table = True; continue
+            if in_table and value.startswith("TOTALS"):
+                break
+            if not in_table: continue
+            amounts = re.findall(r"\$[0-9][0-9,]*(?:\.\d+)?", value)
+            variance = re.search(r"(-?\d+)%\s*$", value)
+            if len(amounts) < 2 or not variance: continue
+            prefix = value[:value.rfind(amounts[0])].strip()
+            rank = len(rows) + 1
+            mechanic = next((a for a in activities if prefix.casefold().endswith(a.casefold())), None)
+            if mechanic: prefix = prefix[:-len(mechanic)].strip()
+            tokens = prefix.split()
+            if not tokens: continue
+            # Preserve the source text and keep both logical fields populated;
+            # the source does not provide a separate machine-readable delimiter.
+            charity = tokens[-1]
+            campaign = " ".join(tokens[:-1]) or charity
+            rows.append({"source_record_id": f"{self.name}:row:{rank}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": value, "record_type": "top30_campaign", "rank": rank, "campaign_event_name": campaign, "charity_source_organisation_label": charity, "activity_mechanic": mechanic, "reported_amount_2023": amounts[0], "reported_amount_2024": amounts[1], "source_reported_variance": variance.group(1) + "%", "reporting_year": 2024, "source_edition": "Top 30 for 2024", "offline_revenue_caveat": "Public revenue may omit offline funds."})
+        return rows[:30]
 
 
 class FIAAwardsAdapter(FundraisingIndustryAdapter):
@@ -291,15 +357,60 @@ class FIAAwardsAdapter(FundraisingIndustryAdapter):
     source_role = "fundraising_industry_award_record"
     source_url = "https://www.fia.org.au/"
 
+    def enumerate_html(self, html: str, *, source_url: str | None = None, page_status: str = "finalist") -> list[dict[str, Any]]:
+        class Parser(HTMLParser):
+            def __init__(self): super().__init__(); self.tag = None; self.buf = []; self.heading = ""; self.items = []
+            def handle_starttag(self, tag, attrs):
+                if tag in {"h1", "h2", "h3", "h4", "p", "li"}: self.tag = tag; self.buf = []
+            def handle_data(self, data):
+                if self.tag: self.buf.append(data)
+            def handle_endtag(self, tag):
+                if tag == self.tag:
+                    text = " ".join(" ".join(self.buf).split());
+                    if text and tag.startswith("h"): self.heading = text
+                    elif text: self.items.append((self.heading, text))
+                    self.tag = None
+        parser = Parser(); parser.feed(html); records = []
+        index = 0
+        while index < len(parser.items):
+            category, text = parser.items[index]
+            if re.search(r"nominated by", text, re.I):
+                index += 1; continue
+            nxt = parser.items[index + 1][1] if index + 1 < len(parser.items) and parser.items[index + 1][0] == category else None
+            if not nxt and not re.search(r"campaign|appeal|project|winner|finalist|commend", text, re.I):
+                index += 1; continue
+            organisation, campaign = (text, nxt) if nxt else (None, text)
+            nominated_by = None
+            if index + 2 < len(parser.items) and parser.items[index + 2][0] == category and re.search(r"nominated by", parser.items[index + 2][1], re.I):
+                nominated_by = re.sub(r"^.*?nominated by:?\s*", "", parser.items[index + 2][1], flags=re.I).strip()
+                index += 1
+            records.append({"source_record_id": f"{self.name}:html:{len(records)+1}", "source_url": source_url or self.source_url, "source_location": f"item:{index+1}", "source_text": " — ".join(x for x in (organisation, campaign) if x), "record_type": "fia_award_record", "year": 2026, "source_native_award_category": category or None, "organisation": organisation, "campaign_project": campaign, "status": page_status, "consultant_service_provider": organisation if category and re.search(r"consultant|service partner", category, re.I) else None, "nominated_by": nominated_by})
+            index += 2
+        return records
+
     def enumerate_records(self, text: str, *, source_url: str | None = None) -> list[dict[str, Any]]:
-        records = []
-        for index, line in enumerate(text.splitlines(), start=1):
-            value = " ".join(line.split())
-            if not value or not re.search(r"finalist|winner|highly commended|nominated by|campaign|award", value, re.I):
-                continue
-            status = next((term for term in ("winner", "finalist", "highly commended") if term in value.casefold()), "unspecified")
-            match = re.search(r"nominated by:?\s*(.+)$", value, re.I)
-            records.append({"source_record_id": f"{self.name}:{index}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": value, "record_type": "fia_award_record", "award_year": 2026, "category": None, "organisation": None, "campaign_or_project": None, "status": status, "nominated_by": match.group(1).strip() if match else None, "source_native_category": True})
+        records = []; category = None; lines = [" ".join(x.split()) for x in text.splitlines() if x.strip()]
+        provider_category = False; i = 0
+        category_markers = ("CAMPAIGN", "SUPPORTER", "PARTNERSHIP", "EVENT", "GIFT", "CONSULTANT", "SERVICE PARTNER")
+        while i < len(lines):
+            value = lines[i]
+            if value.upper() == "STATE WINNERS" or any(marker in value.upper() for marker in category_markers):
+                category = value; provider_category = bool(re.search(r"consultant|service partner", value, re.I)); i += 1; continue
+            if category and i + 1 < len(lines) and not re.search(r"nominated by|commend|winner|finalist", value, re.I):
+                next_value = lines[i + 1]
+                nominated = None; campaign = next_value
+                if re.search(r"nominated by", next_value, re.I):
+                    nominated = re.sub(r"^.*?nominated by:?\s*", "", next_value, flags=re.I).strip(); campaign = None
+                elif i + 2 < len(lines) and re.search(r"nominated by", lines[i + 2], re.I):
+                    nominated = re.sub(r"^.*?nominated by:?\s*", "", lines[i + 2], flags=re.I).strip()
+                records.append({"source_record_id": f"{self.name}:{i+1}", "source_url": source_url or self.source_url, "source_location": f"line:{i+1}", "source_text": " — ".join(x for x in (value, campaign) if x), "record_type": "fia_award_record", "year": 2026, "source_native_award_category": category, "organisation": value, "campaign_project": campaign, "status": "high commendation" if "commend" in value.casefold() else "winner" if "winner" in value.casefold() else "finalist", "consultant_service_provider": value if provider_category else None, "nominated_by": nominated})
+                i += 3 if nominated and campaign else 2; continue
+            i += 1
+        if not records:
+            for index, line in enumerate(lines, start=1):
+                if not re.search(r"finalist|winner|commend|nominated by|campaign|award", line, re.I): continue
+                match = re.search(r"nominated by:?\s*(.+)$", line, re.I)
+                records.append({"source_record_id": f"{self.name}:{index}", "source_url": source_url or self.source_url, "source_location": f"line:{index}", "source_text": line, "record_type": "fia_award_record", "year": 2026, "source_native_award_category": None, "organisation": None, "campaign_project": line, "status": "winner" if "winner" in line.casefold() else "finalist", "consultant_service_provider": None, "nominated_by": match.group(1).strip() if match else None})
         return records
 
 
@@ -326,16 +437,18 @@ def conservative_identity_candidates(*, source_record_id: str, external_identifi
     return IdentityBindingCandidate(source_record_id=source_record_id, status="unresolved", basis="no_exact_governed_identifier", external_identifier=external_identifier)
 
 
-def crosswalk_source_records(records: list[dict[str, Any]], *, known_domains: dict[str, str]) -> list[dict[str, Any]]:
+def crosswalk_source_records(records: list[dict[str, Any]], *, known_domains: dict[str, str | list[str]], known_names: dict[str, list[str]] | None = None) -> list[dict[str, Any]]:
     """Crosswalk source labels conservatively; exact domains resolve, names remain candidates."""
     output = []
     for record in records:
         label = str(record.get("organisation") or record.get("charity") or record.get("charity_label") or "").strip()
-        domain = str(record.get("linked_domain") or "").casefold().strip()
+        domain = normalize_host(record.get("linked_domain"))
         if domain and domain in known_domains:
-            binding = {"status": "resolved", "subject_id": known_domains[domain], "basis": "exact_known_domain"}
+            matches = known_domains[domain] if isinstance(known_domains[domain], list) else [known_domains[domain]]
+            binding = {"status": "resolved" if len(matches) == 1 else "ambiguous", "subject_id": matches[0] if len(matches) == 1 else None, "basis": "exact_known_domain"}
         elif label:
-            binding = {"status": "candidate", "subject_id": None, "basis": "name_only_candidate"}
+            matches = (known_names or {}).get(label.casefold(), [])
+            binding = {"status": "ambiguous" if len(matches) > 1 else "candidate", "subject_id": None, "basis": "name_only_candidate", "name_matches": matches}
         else:
             binding = {"status": "unresolved", "subject_id": None, "basis": "no_identity_signal"}
         output.append({**record, "identity_binding": binding})
@@ -343,12 +456,13 @@ def crosswalk_source_records(records: list[dict[str, Any]], *, known_domains: di
 
 
 def selection_matrix(population: list[dict[str, Any]], crosswalk: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    hits = Counter(str(row.get("source_family")) for row in crosswalk if row.get("identity_binding", {}).get("status") == "resolved")
-    by_label = Counter(str(row.get("organisation") or row.get("charity") or row.get("charity_label") or "").casefold() for row in crosswalk)
+    by_subject = Counter(row.get("identity_binding", {}).get("subject_id") for row in crosswalk if row.get("identity_binding", {}).get("subject_id"))
+    by_label = Counter(str(row.get("organisation") or row.get("charity") or row.get("charity_label") or "").casefold() for row in crosswalk if row.get("identity_binding", {}).get("status") in {"candidate", "ambiguous"})
     matrix = []
     for card in population:
-        label = str(card.get("display_name") or card.get("legal_name") or "")
-        matrix.append({"subject_id": card.get("causebase_id"), "display_name": label, "size": card.get("size", "unknown"), "website_richness": "available" if card.get("website") else "unknown", "report_richness": "available" if card.get("financial_records") else "unknown", "source_richness": "structured" if card.get("evidence") else "thin", "complexity_identity_signals": ["identity_ambiguity"] if card.get("subject_kind") in {"unknown", "organisation_group"} else [], "fundraising_industry_hit_count": by_label.get(label.casefold(), 0), "fundraising_industry_hit_types": sorted({str(row.get("source_family")) for row in crosswalk if str(row.get("organisation") or row.get("charity") or row.get("charity_label") or "").casefold() == label.casefold()}), "selection_status": "available_for_user_selection", "governed_cohort_selected": False})
+        label = str(card.get("display_name") or card.get("legal_name") or ""); sid = card.get("subject_id") or card.get("causebase_id")
+        linked = [row for row in crosswalk if row.get("identity_binding", {}).get("subject_id") == sid or sid in row.get("identity_binding", {}).get("name_matches", []) or (str(row.get("organisation") or row.get("charity") or row.get("charity_label") or "").casefold() == label.casefold() and row.get("identity_binding", {}).get("status") in {"candidate", "ambiguous"})]
+        matrix.append({"subject_id": sid, "display_name": label, "size": card.get("size", "unknown"), "website_richness": "available" if card.get("website") or card.get("website_domain") else "unknown", "report_richness": "available" if card.get("financial_records") or card.get("report_available") else "unknown", "source_richness": "structured" if card.get("evidence") or card.get("evidence_available") else "thin", "complexity_identity_signals": card.get("identity_ambiguity_signals", []), "fundraising_industry_hit_count": len(linked), "fundraising_industry_hit_types": sorted({str(row.get("source_family")) for row in linked}), "exact_industry_hit": any(row.get("identity_binding", {}).get("subject_id") == sid for row in linked), "candidate_industry_hit": any(row.get("identity_binding", {}).get("status") in {"candidate", "ambiguous"} for row in linked), "selection_status": "available_for_user_selection", "governed_cohort_selected": False})
     return matrix
 
 
