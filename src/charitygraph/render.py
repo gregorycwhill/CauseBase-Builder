@@ -195,16 +195,16 @@ def render_publication(
 
     json_rows = [_jsonable(c) for c in cards]
 
-    (output_dir / "causebase.json").write_text(
+    (output_dir / "charitygraph.json").write_text(
         json.dumps({"entities": json_rows}, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
-    with (output_dir / "causebase.jsonl").open("w", encoding="utf-8") as f:
+    with (output_dir / "charitygraph.jsonl").open("w", encoding="utf-8") as f:
         for row in json_rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     flat_rows = [flatten_card(c) for c in cards]
-    with (output_dir / "causebase.csv").open("w", newline="", encoding="utf-8") as f:
+    with (output_dir / "charitygraph.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(flat_rows[0].keys()))
         writer.writeheader()
         writer.writerows(flat_rows)
@@ -258,7 +258,7 @@ def render_publication(
     if taxonomy is not None:
         taxonomy_dir = output_dir / "taxonomy"
         taxonomy_dir.mkdir(exist_ok=True)
-        (taxonomy_dir / "causebase-v0.json").write_text(
+        (taxonomy_dir / "charitygraph-v0.json").write_text(
             json.dumps(taxonomy, indent=2, ensure_ascii=False), encoding="utf-8"
         )
     coverage = {
@@ -288,7 +288,7 @@ def render_publication(
 
     parquet_status = "written"
     try:
-        pd.DataFrame(flat_rows).to_parquet(output_dir / "causebase.parquet", index=False)
+        pd.DataFrame(flat_rows).to_parquet(output_dir / "charitygraph.parquet", index=False)
         pd.DataFrame(
             [
                 {
@@ -319,7 +319,7 @@ def render_publication(
             }
 
     manifest = {
-        "dataset": "CauseBase",
+        "dataset": "CharityGraph",
         "dataset_version": cards[0].dataset_version if cards else None,
         "card_schema_version": "0.1",
         "editorial_policy_version": "0.1",
