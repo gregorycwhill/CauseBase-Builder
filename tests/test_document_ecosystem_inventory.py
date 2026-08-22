@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 
-INVENTORY=Path(__file__).parents[2]/"CauseBase-Data"/"golden"/"document-extraction-ecosystem-v1.json"
+from charitygraph.config import load_paths
+
+
+INVENTORY = load_paths(Path(__file__).resolve().parents[2]).data_repository_root / "golden" / "document-extraction-ecosystem-v1.json"
 
 def test_ecosystem_inventory_is_complete_and_has_explicit_screening():
     inventory=json.loads(INVENTORY.read_text()); candidates=inventory["candidates"]

@@ -1,6 +1,6 @@
 import json
 
-from causebase_builder.phase2d import _accepted_rc2_summaries
+from charitygraph.phase2d import _accepted_rc2_summaries
 
 
 EJA_ACCEPTED_RC2_SUMMARY = (

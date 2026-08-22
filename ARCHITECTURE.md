@@ -86,7 +86,7 @@ Local mutable runtime\
 
 OneDrive repositories\
   CauseBase\
-    CauseBase-Builder\ CauseBase-Data\ CauseBase-Viewer\
+    charitygraph\ charitygraph-data\ charitygraph-viewer\
 ```
 
 Completed durable artefacts are content-addressed or dated where practical. Downloads first complete in local temporary storage, are validated and hashed, then move to the durable archive. The exact paths are configurable; the storage classes remain explicit.

@@ -1,4 +1,4 @@
-from causebase_builder.v05.recovery import legacy_unbound, recover_exact
+from charitygraph.v05.recovery import legacy_unbound, recover_exact
 
 def test_exact_recovery_never_uses_fuzzy_values():
     records=[{"source_record_id":"src:test","source_fields":{"Beneficiaries":["Children"]}}]

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from causebase_builder.pipeline import build_fixture_corpus
+from charitygraph.pipeline import build_fixture_corpus
 
 
 def test_fundraising_estimate_cannot_reference_unretained_financial_record():

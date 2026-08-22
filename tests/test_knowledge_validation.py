@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from causebase_builder.knowledge_validation import ReviewDecision, automation_policy, prepare, score_decisions, select_review_sample
+from charitygraph.knowledge_validation import ReviewDecision, automation_policy, prepare, score_decisions, select_review_sample
 
 
 def _input(tmp_path: Path):

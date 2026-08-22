@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from causebase_builder.sources.ais import parse_ais_financial_csv
-from causebase_builder.sources.dgr import iter_dgr_bulk_extract, parse_dgr_csv
+from charitygraph.sources.ais import parse_ais_financial_csv
+from charitygraph.sources.dgr import iter_dgr_bulk_extract, parse_dgr_csv
 
 
 def test_ais_adapter_preserves_reporting_period_and_numeric_source_values(tmp_path: Path):

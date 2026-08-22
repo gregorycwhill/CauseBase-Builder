@@ -1,7 +1,7 @@
 from pathlib import Path
 from PIL import Image, ImageDraw
-from causebase_builder.document_v2.pipeline import extract_document
-from causebase_builder.document_v2.evaluate import run_benchmark
+from charitygraph.document_v2.pipeline import extract_document
+from charitygraph.document_v2.evaluate import run_benchmark
 import json
 
 def test_document_v2_is_cached_and_has_page_provenance(tmp_path):

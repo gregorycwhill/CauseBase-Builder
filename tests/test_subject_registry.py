@@ -1,6 +1,6 @@
 import pytest
 
-from causebase_builder.registry import SubjectRegistry
+from charitygraph.registry import SubjectRegistry
 
 
 def _mint(registry, name="Example"):

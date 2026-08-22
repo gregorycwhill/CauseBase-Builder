@@ -1,4 +1,4 @@
-from causebase_builder.document_v2.evaluate import _compute_decision
+from charitygraph.document_v2.evaluate import _compute_decision
 
 
 def test_document_decision_is_derived_from_hard_gates():

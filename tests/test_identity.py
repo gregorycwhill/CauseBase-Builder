@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from causebase_builder.pipeline import build_fixture_corpus
+from charitygraph.pipeline import build_fixture_corpus
 
 
 def test_fixture_cards_use_opaque_causebase_ids_and_external_abns():

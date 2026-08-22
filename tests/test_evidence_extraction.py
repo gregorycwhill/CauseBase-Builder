@@ -1,5 +1,5 @@
-from causebase_builder.sources.documents import parse_money_observation
-from causebase_builder.sources.web import extract_web_snapshot
+from charitygraph.sources.documents import parse_money_observation
+from charitygraph.sources.web import extract_web_snapshot
 
 
 def test_web_extractor_removes_common_boilerplate():
@@ -20,7 +20,7 @@ def test_web_extractor_removes_standalone_navigation_controls():
 
 
 def test_report_link_discovery_normalises_a_bare_domain_base_url():
-    from causebase_builder.sources.web import discover_report_links
+    from charitygraph.sources.web import discover_report_links
 
     links = discover_report_links(
         '<a href="/reports/annual.pdf">Annual report</a>', "example.org/about"

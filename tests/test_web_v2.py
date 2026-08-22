@@ -1,4 +1,4 @@
-from causebase_builder.sources.web_v2 import discover_pages, normalize_snapshot, source_observation_candidates
+from charitygraph.sources.web_v2 import discover_pages, normalize_snapshot, source_observation_candidates
 
 HTML="""<html><title>Example</title><nav>Ignore navigation</nav><main><h1>Our work</h1><p>We support communities across Australia.</p><a href='/about'>About us</a><a href='/events'>Events</a><a href='https://other.example/x'>External</a></main></html>"""
 

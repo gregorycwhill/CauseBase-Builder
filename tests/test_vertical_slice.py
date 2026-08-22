@@ -2,10 +2,10 @@ import csv
 import json
 from pathlib import Path
 
-from causebase_builder.pipeline import build_fixture_corpus
-from causebase_builder.models import FinancialMetricObservation, MoneyObservation
-from causebase_builder.render import card_locator, flatten_card, render_markdown, render_publication
-from causebase_builder.validate import validate_publication
+from charitygraph.pipeline import build_fixture_corpus
+from charitygraph.models import FinancialMetricObservation, MoneyObservation
+from charitygraph.render import card_locator, flatten_card, render_markdown, render_publication
+from charitygraph.validate import validate_publication
 
 
 def test_fixture_build_round_trip(tmp_path: Path):

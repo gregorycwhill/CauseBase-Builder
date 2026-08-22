@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from causebase_builder.fundraising import estimate_fundraising
-from causebase_builder.models import FundraisingEstimate
+from charitygraph.fundraising import estimate_fundraising
+from charitygraph.models import FundraisingEstimate
 
 
 FIXTURE = Path("tests/fixtures/source/entities.json")

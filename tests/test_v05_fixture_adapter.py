@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
 from copy import deepcopy
-from causebase_builder.v05 import ReleaseContext, adapt_rc4_card, adapt_rc4_fixture, validate_v05_card
-from causebase_builder.v05.models import CapabilityRegistry
-from causebase_builder.v05.stage import stage_rc4_release
+from charitygraph.config import load_paths
+from charitygraph.v05 import ReleaseContext, adapt_rc4_card, adapt_rc4_fixture, validate_v05_card
+from charitygraph.v05.models import CapabilityRegistry
+from charitygraph.v05.stage import stage_rc4_release
 
-DATA=Path(__file__).parents[2]/"CauseBase-Data"/"examples"/"vnext"
+DATA = load_paths(Path(__file__).resolve().parents[2]).data_repository_root / "examples" / "vnext"
 def load(name): return json.loads((DATA/name).read_text(encoding="utf-8"))
 def registry(): return CapabilityRegistry.model_validate(load("capability-registry.json"))
 def ids(card): return set(card["source_record_refs"])
@@ -44,7 +45,7 @@ def test_production_adapter_never_accepts_expected_card_or_invents_provenance():
         item=json.loads(path.read_text(encoding="utf-8")); sidecars[item["source_record_id"]]=item
     card=adapt_rc4_card(source,sidecars,registry(),context)
     assert card["legacy_unbound"]["activities"] == source["activity_observations"]
-    adapter=(Path(__file__).parents[1]/"src"/"causebase_builder"/"v05"/"adapter.py").read_text(encoding="utf-8")
+    adapter=(Path(__file__).parents[1]/"src"/"charitygraph"/"v05"/"adapter.py").read_text(encoding="utf-8")
     assert "examples/vnext" not in adapter and "causebase_id ==" not in adapter
 
 def test_full_rc4_staging_migrates_all_cards_to_temp_directory(tmp_path):

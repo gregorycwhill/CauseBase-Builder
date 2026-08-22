@@ -2,9 +2,9 @@ from decimal import Decimal
 
 from PIL import Image, ImageDraw
 
-from causebase_builder.models import MoneyObservation
-from causebase_builder.phase2d import _functional_expense_allocations
-from causebase_builder.sources import documents
+from charitygraph.models import MoneyObservation
+from charitygraph.phase2d import _functional_expense_allocations
+from charitygraph.sources import documents
 
 
 def test_visual_expense_allocation_is_generic_complete_and_reconciled():

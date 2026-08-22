@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from causebase_builder.config import load_paths
+from charitygraph.config import load_paths
 
 
 def test_paths_keep_durable_archive_separate_from_mutable_runtime(monkeypatch, tmp_path: Path):
     archive = tmp_path / "archive"
     runtime = tmp_path / "runtime"
-    data = tmp_path / "CauseBase-Data"
+    data = tmp_path / "charitygraph-data"
     monkeypatch.setenv("CAUSEBASE_ARCHIVE_ROOT", str(archive))
     monkeypatch.setenv("CAUSEBASE_RUNTIME_ROOT", str(runtime))
     monkeypatch.setenv("CAUSEBASE_DATA_REPOSITORY", str(data))

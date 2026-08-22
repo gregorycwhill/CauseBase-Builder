@@ -2,9 +2,9 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from causebase_builder.models import CauseBaseCard, Classification
-from causebase_builder.openai_client import ApiResult, ApiUsage
-from causebase_builder.taxonomy_workflow import HumanDecision, model_review, prepare_review, render_decisions, validate_implemented_change
+from charitygraph.models import CauseBaseCard, Classification
+from charitygraph.openai_client import ApiResult, ApiUsage
+from charitygraph.taxonomy_workflow import HumanDecision, model_review, prepare_review, render_decisions, validate_implemented_change
 
 
 def _taxonomy():
@@ -12,7 +12,7 @@ def _taxonomy():
 
 
 def _corpus():
-    card=CauseBaseCard(causebase_id="cb_test",legal_name="Name",display_name="Name",entity_status="registered",causebase_summary="Restores habitat with volunteers.",activities=["habitat restoration"],beneficiaries=["local community"],dataset_version="test",built_at=datetime(2026,1,1,tzinfo=timezone.utc),classifications=[Classification(taxonomy_id="causebase",taxonomy_version="0.1-phase2a",term_id="activity.environmental_restoration",term_label="Environmental restoration",assignment_method="llm_classification",confidence="medium"),Classification(taxonomy_id="acnc-register",taxonomy_version="x",term_id="purpose.environment",term_label="Environment",assignment_method="source_native")])
+    card=CauseBaseCard(causebase_id="cb_test",legal_name="Name",display_name="Name",entity_status="registered",causebase_summary="Restores habitat with volunteers.",activities=["habitat restoration"],beneficiaries=["local community"],dataset_version="test",built_at=datetime(2026,1,1,tzinfo=timezone.utc),classifications=[Classification(taxonomy_id="charitygraph",taxonomy_version="0.1-phase2a",term_id="activity.environmental_restoration",term_label="Environmental restoration",assignment_method="llm_classification",confidence="medium"),Classification(taxonomy_id="acnc-register",taxonomy_version="x",term_id="purpose.environment",term_label="Environment",assignment_method="source_native")])
     return {"entities":[card.model_dump(mode="json")]}
 
 
@@ -44,7 +44,7 @@ def test_model_review_is_optional_advisory_and_does_not_write_decisions(tmp_path
     def fake_response(**kwargs):
         assert "purpose.environment" not in kwargs["input_text"]
         return ApiResult("private-id", "gpt-test", "completed", json.dumps({"advisory_findings": ["inspect boundary"], "counterexamples": [], "limitations": ["small corpus"], "human_questions": ["decide"]}), ApiUsage(10, 20, 30))
-    monkeypatch.setattr("causebase_builder.taxonomy_workflow.responses_create", fake_response)
+    monkeypatch.setattr("charitygraph.taxonomy_workflow.responses_create", fake_response)
     result=model_review(review_summary_path=tmp_path/"prepared"/"review-summary.json", output_dir=tmp_path/"advisory", model="gpt-test")
     assert result["model_review"]["advisory_only"] is True
     assert not (tmp_path/"advisory"/"decision-record.json").exists()
